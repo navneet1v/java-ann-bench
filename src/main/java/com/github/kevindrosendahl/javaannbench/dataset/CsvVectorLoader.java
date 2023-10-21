@@ -1,5 +1,6 @@
 package com.github.kevindrosendahl.javaannbench.dataset;
 
+import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +16,7 @@ public class CsvVectorLoader {
   private static final Logger LOGGER = LoggerFactory.getLogger(CsvVectorLoader.class);
 
 
-  public static List<float[]> load(Path path) throws IOException {
+  public static List<float[]> load(Path path, int dimensions) throws IOException {
     LOGGER.info("loading vectors from {}", path);
 
     var vectors = new ArrayList<float[]>();
@@ -23,6 +24,8 @@ public class CsvVectorLoader {
     try (var reader = Files.newBufferedReader(path); var parser = new CSVParser(reader,
         CSVFormat.DEFAULT)) {
       for (var record : parser) {
+        Preconditions.checkArgument(record.size() == dimensions,
+            "row's dimensions %s does not match expected %s", record.size(), dimensions);
         var vector = new float[record.size()];
 
         var dimension = 0;

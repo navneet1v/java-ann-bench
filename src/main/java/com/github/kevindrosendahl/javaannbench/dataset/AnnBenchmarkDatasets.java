@@ -25,23 +25,29 @@ public class AnnBenchmarkDatasets {
   private static final String EXTRACTED = "ann-datasets";
 
   public enum Datasets {
-    GLOVE_100(SimilarityFunction.COSINE, Path.of("glove-100-angular"));
+    GIST_960(960, SimilarityFunction.EUCLIDEAN, "gist-960-euclidean"),
+    GLOVE_100(100, SimilarityFunction.COSINE, "glove-100-angular"),
+    GLOVE_25(25, SimilarityFunction.COSINE, "glove-25-angular"),
+    MNIST_784(784, SimilarityFunction.EUCLIDEAN, "mnist-784-euclidean"),
+    NYTIMES_256(256, SimilarityFunction.COSINE, "nytimes-256-angular"),
+    SIFT_128(128, SimilarityFunction.COSINE, "sift-128-angular");
 
+    final int dimensions;
     final SimilarityFunction similarityFunction;
     private final Path directory;
 
-    Datasets(SimilarityFunction similarityFunction, Path directory) {
+    Datasets(int dimensions, SimilarityFunction similarityFunction, String directory) {
+      this.dimensions = dimensions;
       this.similarityFunction = similarityFunction;
-      this. directory = directory;
+      this.directory = Path.of(directory);
     }
   }
 
-  public static Dataset load(Datasets dataset, Path directory) throws IOException, InterruptedException {
+  public static Dataset load(Datasets dataset, Path directory)
+      throws IOException, InterruptedException {
     ensure(directory);
     var datasetDir = directory.resolve(EXTRACTED).resolve(dataset.directory);
-    var test = CsvVectorLoader.load(datasetDir.resolve("test.csv"));
-    var train = CsvVectorLoader.load(datasetDir.resolve("train.csv"));
-    return new Dataset(dataset.similarityFunction, test, train);
+    return Dataset.fromCsv(dataset.dimensions, dataset.similarityFunction, datasetDir);
   }
 
   private static void ensure(Path directory) throws IOException, InterruptedException {
@@ -67,14 +73,10 @@ public class AnnBenchmarkDatasets {
     Files.createDirectories(directory);
 
     Region region = Region.US_EAST_1;
-    try (S3Client s3 = S3Client.builder()
-        .region(region)
-        .credentialsProvider(DefaultCredentialsProvider.create())
-        .build()) {
+    try (S3Client s3 = S3Client.builder().region(region)
+        .credentialsProvider(DefaultCredentialsProvider.create()).build()) {
 
-      GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-          .bucket(BUCKET)
-          .key(KEY)
+      GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(BUCKET).key(KEY)
           .build();
 
       s3.getObject(getObjectRequest, ResponseTransformer.toFile(directory.resolve(KEY)));
@@ -139,7 +141,4 @@ public class AnnBenchmarkDatasets {
       }
     }
   }
-
-
-
 }
