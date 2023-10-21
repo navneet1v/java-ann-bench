@@ -1,0 +1,4 @@
+[submodule "submodules/lucene"]
+	path = submodules/lucene
+	url = https://github.com/kevindrosendahl/lucene.git
+	branch = ann-sandbox
