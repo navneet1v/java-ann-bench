@@ -16,6 +16,7 @@ dependencies {
     implementation("software.amazon.awssdk:s3:2.21.5")
     implementation("ch.qos.logback:logback-classic:1.4.11")
     implementation("commons-io:commons-io:2.14.0")
+    implementation(project(":lucene"))
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
