@@ -32,21 +32,21 @@ public class AnnBenchmarkDatasets {
     NYTIMES_256(256, SimilarityFunction.COSINE, "nytimes-256-angular"),
     SIFT_128(128, SimilarityFunction.COSINE, "sift-128-angular");
 
-    final int dimensions;
-    final SimilarityFunction similarityFunction;
-    private final Path directory;
+    public final int dimensions;
+    public final SimilarityFunction similarityFunction;
+    public final String description;
 
-    Datasets(int dimensions, SimilarityFunction similarityFunction, String directory) {
+    Datasets(int dimensions, SimilarityFunction similarityFunction, String description) {
       this.dimensions = dimensions;
       this.similarityFunction = similarityFunction;
-      this.directory = Path.of(directory);
+      this.description = description;
     }
   }
 
   public static Dataset load(Datasets dataset, Path directory)
       throws IOException, InterruptedException {
     ensure(directory);
-    var datasetDir = directory.resolve(EXTRACTED).resolve(dataset.directory);
+    var datasetDir = directory.resolve(EXTRACTED).resolve(Path.of(dataset.description));
     return Dataset.fromCsv(dataset.dimensions, dataset.similarityFunction, datasetDir);
   }
 

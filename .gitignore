@@ -41,8 +41,9 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-### ann datasets ###
+### datasets and index builds ###
 datasets
+indexes
 
 ### dependencies ###
 libs

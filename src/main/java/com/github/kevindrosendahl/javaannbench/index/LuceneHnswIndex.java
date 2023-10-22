@@ -1,9 +1,7 @@
 package com.github.kevindrosendahl.javaannbench.index;
 
-import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.google.common.base.Preconditions;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -26,61 +24,66 @@ import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 
-public class LuceneIndex implements AutoCloseable {
+public final class LuceneHnswIndex implements AutoCloseable, Index {
+
+  public enum HnswProvider {
+    LUCENE_95, SANDBOX,
+  }
 
   private static final String VECTOR_FIELD = "vector";
 
   private final Directory directory;
   private final Codec codec;
+  private final HnswProvider provider;
+  private final int maxConn;
+  private final int beamWidth;
   private final VectorSimilarityFunction similarityFunction;
   private boolean built;
   private boolean closed;
   private Optional<IndexReader> reader;
   private Optional<IndexSearcher> searcher;
 
-  private LuceneIndex(Directory directory, Codec codec,
-      VectorSimilarityFunction similarityFunction) {
+  private LuceneHnswIndex(Directory directory, Codec codec, HnswProvider provider, int maxConn,
+      int beamWidth, VectorSimilarityFunction similarityFunction) {
     this.directory = directory;
     this.codec = codec;
+    this.provider = provider;
+    this.maxConn = maxConn;
+    this.beamWidth = beamWidth;
     this.similarityFunction = similarityFunction;
     this.built = false;
     this.reader = Optional.empty();
     this.searcher = Optional.empty();
   }
 
-  public static LuceneIndex createLucene95(Path path, int maxConn, int beamWidth,
-      SimilarityFunction similarityFunction)
-      throws IOException {
-    return create(path, new Lucene95Codec() {
-      @Override
-      public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-        return new Lucene95HnswVectorsFormat(maxConn, beamWidth);
-      }
-    }, similarityFunction);
-  }
+  public static LuceneHnswIndex create(Path indexesPath, HnswProvider hnswProvider, int maxConn,
+      int beamWidth, SimilarityFunction similarityFunction) throws IOException {
 
-  public static LuceneIndex createSandbox(Path path, int maxConn, int beamWidth,
-      SimilarityFunction similarityFunction)
-      throws IOException {
-    var codec = new Lucene95Codec() {
-      @Override
-      public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-        return new VectorSandboxHnswVectorsFormat(maxConn, beamWidth);
-      }
+    var luceneCodec = switch (hnswProvider) {
+      case LUCENE_95 -> new Lucene95Codec() {
+        @Override
+        public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
+          return new Lucene95HnswVectorsFormat(maxConn, beamWidth);
+        }
+      };
+      case SANDBOX -> new Lucene95Codec() {
+        @Override
+        public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
+          return new VectorSandboxHnswVectorsFormat(maxConn, beamWidth);
+        }
+      };
     };
-    return create(path, codec, similarityFunction);
-  }
-
-  private static LuceneIndex create(Path path, Codec codec, SimilarityFunction similarityFunction)
-      throws IOException {
 
     var similarity = switch (similarityFunction) {
       case COSINE -> VectorSimilarityFunction.COSINE;
       case DOT_PRODUCT -> VectorSimilarityFunction.DOT_PRODUCT;
       case EUCLIDEAN -> VectorSimilarityFunction.EUCLIDEAN;
     };
-    var directory = new MMapDirectory(path);
-    return new LuceneIndex(directory, codec, similarity);
+
+    var description = description(hnswProvider, maxConn, beamWidth);
+    var directory = new MMapDirectory(indexesPath.resolve(description));
+    return new LuceneHnswIndex(directory, luceneCodec, hnswProvider, maxConn, beamWidth,
+        similarity);
   }
 
   public void build(List<float[]> vectors) throws IOException {
@@ -112,6 +115,11 @@ public class LuceneIndex implements AutoCloseable {
   }
 
   @Override
+  public String description() {
+    return description(this.provider, this.maxConn, this.beamWidth);
+  }
+
+  @Override
   public void close() throws Exception {
     Preconditions.checkArgument(!this.closed, "already closed");
 
@@ -120,5 +128,13 @@ public class LuceneIndex implements AutoCloseable {
       this.reader.get().close();
     }
     this.closed = true;
+  }
+
+  private static String description(HnswProvider provider, int maxConn, int beamWidth) {
+    var providerDescription = switch (provider) {
+      case LUCENE_95 -> "lucene95";
+      case SANDBOX -> "sandbox";
+    };
+    return String.format("lucene-hnsw-%s-M:%s-efConstruction:%s", providerDescription, maxConn, beamWidth);
   }
 }
