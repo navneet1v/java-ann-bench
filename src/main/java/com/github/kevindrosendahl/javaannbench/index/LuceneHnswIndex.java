@@ -89,7 +89,8 @@ public final class LuceneHnswIndex implements AutoCloseable, Index {
   public void build(List<float[]> vectors) throws IOException {
     Preconditions.checkArgument(!this.built, "index is already built");
 
-    try (var writer = new IndexWriter(this.directory, new IndexWriterConfig().setCodec(codec))) {
+    try (var writer = new IndexWriter(this.directory,
+        new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(2 * 1024))) {
       var doc = new Document();
       for (var vector : vectors) {
         doc.clear();
@@ -135,6 +136,7 @@ public final class LuceneHnswIndex implements AutoCloseable, Index {
       case LUCENE_95 -> "lucene95";
       case SANDBOX -> "sandbox";
     };
-    return String.format("lucene-hnsw-%s-M:%s-efConstruction:%s", providerDescription, maxConn, beamWidth);
+    return String.format("lucene-hnsw-%s-M:%s-efConstruction:%s", providerDescription, maxConn,
+        beamWidth);
   }
 }

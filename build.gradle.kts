@@ -12,6 +12,14 @@ repositories {
 
 application {
     mainClass.set("com.github.kevindrosendahl.javaannbench.BenchRunner")
+    applicationDefaultJvmArgs = listOf(
+            "-Xmx4g",
+            "--enable-preview",
+            "-XX:+UnlockExperimentalVMOptions",
+            "-XX:+EnableVectorSupport",
+            "--add-modules",
+            "jdk.incubator.vector"
+    )
 }
 
 dependencies {
@@ -28,6 +36,9 @@ dependencies {
 }
 
 java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
