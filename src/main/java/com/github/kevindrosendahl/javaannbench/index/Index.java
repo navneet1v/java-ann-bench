@@ -5,7 +5,6 @@ import com.github.kevindrosendahl.javaannbench.index.LuceneHnswIndex.HnswProvide
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
-import org.apache.lucene.index.VectorSimilarityFunction;
 
 public sealed interface Index permits LuceneHnswIndex {
 
@@ -40,12 +39,12 @@ public sealed interface Index permits LuceneHnswIndex {
         mSplit[0]);
     var m = Integer.parseInt(mSplit[1]);
 
-    var efConstructionPart = parts[3];
+    var efConstructionPart = parts[4];
     var efConstructionSplit = efConstructionPart.split(":");
     Preconditions.checkArgument(efConstructionSplit.length == 2,
-        "unexpected format for m parameter");
+        "unexpected format for efConstruction parameter");
     Preconditions.checkArgument(efConstructionSplit[0].equals("efConstruction"),
-        "expected M parameter first, got %s", mSplit[0]);
+        "expected efConstruction parameter second got %s", efConstructionSplit[0]);
     var efConstruction = Integer.parseInt(efConstructionSplit[1]);
 
     return LuceneHnswIndex.create(path, provider, m, efConstruction, similarityFunction);

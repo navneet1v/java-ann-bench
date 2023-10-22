@@ -1,8 +1,6 @@
 package com.github.kevindrosendahl.javaannbench;
 
 import com.github.kevindrosendahl.javaannbench.bench.Recall;
-import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets;
-import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets.Datasets;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.index.Index;

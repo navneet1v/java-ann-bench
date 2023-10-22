@@ -14,8 +14,6 @@ application {
     mainClass.set("com.github.kevindrosendahl.javaannbench.BenchRunner")
 }
 
-
-
 dependencies {
     implementation("org.apache.commons:commons-csv:1.10.0")
     implementation("com.google.guava:guava:32.1.3-jre")
@@ -27,6 +25,11 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 tasks.test {
