@@ -30,10 +30,10 @@ public class BenchRunner implements Runnable {
   @Option(names = {"-q", "--query"})
   private boolean query;
 
-  @Option(names = {"-d", "--dataset"})
+  @Option(names = {"-d", "--dataset"}, required = true)
   private String dataset;
 
-  @Option(names = {"-i", "--index"})
+  @Option(names = {"-i", "--index"}, required = true)
   private String[] indexes;
 
   public static void main(String[] args) {

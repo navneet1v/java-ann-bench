@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("application")
 }
 
 group = "org.example"
@@ -8,6 +9,11 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
 }
+
+application {
+    mainClass.set("com.github.kevindrosendahl.javaannbench.BenchRunner")
+}
+
 
 
 dependencies {
