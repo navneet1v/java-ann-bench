@@ -1,5 +1,6 @@
 package com.github.kevindrosendahl.javaannbench;
 
+import com.github.kevindrosendahl.javaannbench.bench.Recall;
 import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets;
 import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets.Datasets;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
@@ -10,8 +11,6 @@ import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +68,17 @@ public class BenchRunner implements Runnable {
     }
 
     if (this.query) {
-      // FIXME: run queries
+      for (var index : indexes) {
+        // FIXME: take in k and query parameters
+        var result = switch (index) {
+          case LuceneHnswIndex luceneHnswIndex ->
+              Recall.test((vector, k) -> luceneHnswIndex.query(vector, k, k), dataset.test(), 10,
+                  dataset.groundTruth());
+        };
+
+        LOGGER.info("completed recall test for {}: average recall {}, average duration {}",
+            index.description(), result.recall(), result.averageExecutionTime());
+      }
     }
   }
 
@@ -77,7 +86,8 @@ public class BenchRunner implements Runnable {
     return Dataset.fromDescription(datasetPath, this.dataset);
   }
 
-  private List<Index> indexes(Path indexingPath, SimilarityFunction similarityFunction) throws IOException {
+  private List<Index> indexes(Path indexingPath, SimilarityFunction similarityFunction)
+      throws IOException {
     Preconditions.checkArgument(this.indexes.length != 0, "must supply index descriptions");
 
     var indexes = new ArrayList<Index>(this.indexes.length);

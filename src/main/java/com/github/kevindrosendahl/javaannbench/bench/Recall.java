@@ -8,7 +8,7 @@ import java.util.List;
 
 public class Recall {
 
-  interface Index {
+  public interface Index {
     List<Integer> query(float[] vector, int k) throws IOException;
   }
 
