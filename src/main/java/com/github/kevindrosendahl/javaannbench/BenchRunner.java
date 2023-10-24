@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import org.jline.terminal.TerminalBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -23,7 +22,6 @@ public class BenchRunner implements Runnable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(BenchRunner.class);
 
-
   @Option(names = {"-b", "--build"})
   private boolean build;
 
@@ -33,11 +31,9 @@ public class BenchRunner implements Runnable {
   @Option(names = {"-k", "--k"})
   private int k;
 
-  //  @Option(names = {"-d", "--dataset"}, required = true)
   @Option(names = {"-d", "--dataset"})
   private String dataset;
 
-  //  @Option(names = {"-i", "--index"}, required = true)
   @Option(names = {"-i", "--index"})
   private String index;
 
@@ -85,11 +81,11 @@ public class BenchRunner implements Runnable {
           index.add(vector);
           progress.inc();
         }
-
       }
 
       var endAddVectors = Instant.now();
-      LOGGER.info("finished adding vectors in {}, committing index",
+      LOGGER.info(
+          "finished adding vectors in {}, committing index",
           Duration.between(start, endAddVectors));
 
       index.commit();
@@ -97,8 +93,11 @@ public class BenchRunner implements Runnable {
       var end = Instant.now();
       LOGGER.info("finished committing index in {}", Duration.between(endAddVectors, end));
 
-      LOGGER.info("completed building index for {}: total time {}, total size {}",
-          index.description(), Duration.between(start, end), Bytes.ofBytes(index.size()));
+      LOGGER.info(
+          "completed building index for {}: total time {}, total size {}",
+          index.description(),
+          Duration.between(start, end),
+          Bytes.ofBytes(index.size()));
     }
   }
 
@@ -110,12 +109,13 @@ public class BenchRunner implements Runnable {
 
       LOGGER.info("completed recall test for {}:", index.description());
       LOGGER.info("\taverage recall {}", result.recall().getMean());
-      LOGGER.info("\taverage duration {}",
+      LOGGER.info(
+          "\taverage duration {}",
           Duration.ofNanos((long) result.executionDurationMicros().getMean()));
       LOGGER.info("\taverage minor faults {}", result.minorFaults().getMean());
       LOGGER.info("\taverage major faults {}", result.majorFaults().getMean());
-      LOGGER.info("\tmax duration {}",
-          Duration.ofNanos((long) result.executionDurationMicros().getMax()));
+      LOGGER.info(
+          "\tmax duration {}", Duration.ofNanos((long) result.executionDurationMicros().getMax()));
       LOGGER.info("\tmax minor faults {}", result.minorFaults().getMax());
       LOGGER.info("\tmax major faults {}", result.majorFaults().getMax());
     }

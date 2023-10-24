@@ -28,11 +28,12 @@ public class AnnBenchmarkDatasets {
   private static final String EXTRACTED = "ann-datasets";
 
   public enum Datasets {
-    GIST_960(960, SimilarityFunction.EUCLIDEAN, "gist-960-euclidean"), GLOVE_100(100,
-        SimilarityFunction.COSINE, "glove-100-angular"), GLOVE_25(25, SimilarityFunction.COSINE,
-        "glove-25-angular"), MNIST_784(784, SimilarityFunction.EUCLIDEAN,
-        "mnist-784-euclidean"), NYTIMES_256(256, SimilarityFunction.COSINE,
-        "nytimes-256-angular"), SIFT_128(128, SimilarityFunction.COSINE, "sift-128-angular");
+    GIST_960(960, SimilarityFunction.EUCLIDEAN, "gist-960-euclidean"),
+    GLOVE_100(100, SimilarityFunction.COSINE, "glove-100-angular"),
+    GLOVE_25(25, SimilarityFunction.COSINE, "glove-25-angular"),
+    MNIST_784(784, SimilarityFunction.EUCLIDEAN, "mnist-784-euclidean"),
+    NYTIMES_256(256, SimilarityFunction.COSINE, "nytimes-256-angular"),
+    SIFT_128(128, SimilarityFunction.COSINE, "sift-128-angular");
 
     public final int dimensions;
     public final SimilarityFunction similarityFunction;
@@ -49,8 +50,11 @@ public class AnnBenchmarkDatasets {
       throws IOException, InterruptedException {
     ensure(directory);
     var datasetDir = directory.resolve(EXTRACTED).resolve(Path.of(dataset.description));
-    return Dataset.fromCsv("ann-benchmarks_" + dataset.description, dataset.dimensions,
-        dataset.similarityFunction, datasetDir);
+    return Dataset.fromCsv(
+        "ann-benchmarks_" + dataset.description,
+        dataset.dimensions,
+        dataset.similarityFunction,
+        datasetDir);
   }
 
   private static void ensure(Path directory) throws IOException, InterruptedException {
@@ -75,23 +79,29 @@ public class AnnBenchmarkDatasets {
     Files.createDirectories(directory);
 
     Region region = Region.US_EAST_1;
-    try (S3Client s3 = S3Client.builder().region(region)
-        .credentialsProvider(DefaultCredentialsProvider.create()).build()) {
+    try (S3Client s3 =
+        S3Client.builder()
+            .region(region)
+            .credentialsProvider(DefaultCredentialsProvider.create())
+            .build()) {
 
-      HeadObjectRequest headObjectRequest = HeadObjectRequest.builder().bucket(BUCKET).key(KEY)
-          .build();
+      HeadObjectRequest headObjectRequest =
+          HeadObjectRequest.builder().bucket(BUCKET).key(KEY).build();
 
       HeadObjectResponse headObjectResponse = s3.headObject(headObjectRequest);
       var totalSize = Bytes.ofBytes(headObjectResponse.contentLength());
 
       var filePath = directory.resolve(KEY);
-      var downloadFuture = CompletableFuture.runAsync(() -> {
-        var getObjectRequest = GetObjectRequest.builder().bucket(BUCKET).key(KEY).build();
-        s3.getObject(getObjectRequest, ResponseTransformer.toFile(filePath));
-      });
+      var downloadFuture =
+          CompletableFuture.runAsync(
+              () -> {
+                var getObjectRequest = GetObjectRequest.builder().bucket(BUCKET).key(KEY).build();
+                s3.getObject(getObjectRequest, ResponseTransformer.toFile(filePath));
+              });
 
-      try (var progressBar = ProgressBar.create("downloading ann-datasets.tar.gz",
-          (int) totalSize.toMebi(), "MiB", 1)) {
+      try (var progressBar =
+          ProgressBar.create(
+              "downloading ann-datasets.tar.gz", (int) totalSize.toMebi(), "MiB", 1)) {
         while (!downloadFuture.isDone()) {
           try {
             Thread.sleep(1000);

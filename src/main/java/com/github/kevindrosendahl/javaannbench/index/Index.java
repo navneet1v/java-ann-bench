@@ -27,8 +27,8 @@ public interface Index extends AutoCloseable {
       var datasetPath = indexesPath.resolve(dataset.description());
 
       return switch (parameters.provider) {
-        case "lucene" -> LuceneHnswIndex.Builder.create(indexesPath.resolve(datasetPath),
-            dataset.similarityFunction(), parameters);
+        case "lucene" -> LuceneHnswIndex.Builder.create(
+            indexesPath.resolve(datasetPath), dataset.similarityFunction(), parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.type);
       };
     }
@@ -37,27 +37,30 @@ public interface Index extends AutoCloseable {
 
       public static Parameters parse(String description) {
         var parts = description.split("_");
-        Preconditions.checkArgument(parts.length == 3, "unexpected build description format: %s",
-            description);
+        Preconditions.checkArgument(
+            parts.length == 3, "unexpected build description format: %s", description);
 
         var provider = parts[0];
         var type = parts[1];
         var buildParametersString = parts[2];
 
-        var buildParameters = Arrays.stream(buildParametersString.split("-")).map(s -> s.split(":"))
-            .peek(p -> Preconditions.checkArgument(p.length == 2,
-                "unexpected build parameter description format: %s", String.join("-", p)))
-            .collect(Collectors.toMap(a -> a[0], a -> a[1]));
+        var buildParameters =
+            Arrays.stream(buildParametersString.split("-"))
+                .map(s -> s.split(":"))
+                .peek(
+                    p ->
+                        Preconditions.checkArgument(
+                            p.length == 2,
+                            "unexpected build parameter description format: %s",
+                            String.join("-", p)))
+                .collect(Collectors.toMap(a -> a[0], a -> a[1]));
 
         return new Parameters(provider, type, buildParameters);
       }
     }
-
-
   }
 
   interface Querier extends Index {
-
 
     List<Integer> query(float[] vector, int k) throws IOException;
 
@@ -65,34 +68,49 @@ public interface Index extends AutoCloseable {
         throws IOException {
       var parameters = Parameters.parse(description);
       return switch (parameters.provider) {
-        case "lucene" ->
-            LuceneHnswIndex.Querier.create(indexesPath.resolve(dataset.description()), parameters);
+        case "lucene" -> LuceneHnswIndex.Querier.create(
+            indexesPath.resolve(dataset.description()), parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.provider);
       };
     }
 
-    record Parameters(String provider, String type, Map<String, String> buildParameters,
-                      Map<String, String> queryParameters) {
+    record Parameters(
+        String provider,
+        String type,
+        Map<String, String> buildParameters,
+        Map<String, String> queryParameters) {
 
       public static Parameters parse(String description) {
         var parts = description.split("_");
-        Preconditions.checkArgument(parts.length == 4, "unexpected query description format: %s",
-            description);
+        Preconditions.checkArgument(
+            parts.length == 4, "unexpected query description format: %s", description);
 
         var provider = parts[0];
         var type = parts[1];
         var buildParametersString = parts[2];
         var queryParametersString = parts[3];
 
-        var buildParameters = Arrays.stream(buildParametersString.split("-")).map(s -> s.split(":"))
-            .peek(p -> Preconditions.checkArgument(p.length == 2,
-                "unexpected build parameter description format: %s", String.join("-", p)))
-            .collect(Collectors.toMap(a -> a[0], a -> a[1]));
+        var buildParameters =
+            Arrays.stream(buildParametersString.split("-"))
+                .map(s -> s.split(":"))
+                .peek(
+                    p ->
+                        Preconditions.checkArgument(
+                            p.length == 2,
+                            "unexpected build parameter description format: %s",
+                            String.join("-", p)))
+                .collect(Collectors.toMap(a -> a[0], a -> a[1]));
 
-        var queryParameters = Arrays.stream(queryParametersString.split("-")).map(s -> s.split(":"))
-            .peek(p -> Preconditions.checkArgument(p.length == 2,
-                "unexpected query parameter description format: %s", String.join("-", p)))
-            .collect(Collectors.toMap(a -> a[0], a -> a[1]));
+        var queryParameters =
+            Arrays.stream(queryParametersString.split("-"))
+                .map(s -> s.split(":"))
+                .peek(
+                    p ->
+                        Preconditions.checkArgument(
+                            p.length == 2,
+                            "unexpected query parameter description format: %s",
+                            String.join("-", p)))
+                .collect(Collectors.toMap(a -> a[0], a -> a[1]));
 
         return new Parameters(provider, type, buildParameters, queryParameters);
       }

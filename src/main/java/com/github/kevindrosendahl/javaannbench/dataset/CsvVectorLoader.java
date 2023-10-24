@@ -16,15 +16,18 @@ public class CsvVectorLoader {
       throws IOException {
     var rows = Files.lines(path).count();
 
-    try (var progress = ProgressBar.create(String.format("loading %s vectors", description),
-        (int) rows)) {
+    try (var progress =
+        ProgressBar.create(String.format("loading %s vectors", description), (int) rows)) {
       var vectors = new ArrayList<float[]>();
 
-      try (var reader = Files.newBufferedReader(path); var parser = new CSVParser(reader,
-          CSVFormat.DEFAULT)) {
+      try (var reader = Files.newBufferedReader(path);
+          var parser = new CSVParser(reader, CSVFormat.DEFAULT)) {
         for (var record : parser) {
-          Preconditions.checkArgument(record.size() == dimensions,
-              "row's dimensions %s does not match expected %s", record.size(), dimensions);
+          Preconditions.checkArgument(
+              record.size() == dimensions,
+              "row's dimensions %s does not match expected %s",
+              record.size(),
+              dimensions);
           var vector = new float[record.size()];
 
           var dimension = 0;
@@ -39,7 +42,6 @@ public class CsvVectorLoader {
 
       return vectors;
     }
-
   }
 
   public static List<List<Integer>> loadGroundTruth(Path path) throws IOException {
@@ -48,8 +50,8 @@ public class CsvVectorLoader {
     try (var progress = ProgressBar.create("loading ground truth vectors", (int) rows)) {
       var groundTruths = new ArrayList<List<Integer>>();
 
-      try (var reader = Files.newBufferedReader(path); var parser = new CSVParser(reader,
-          CSVFormat.DEFAULT)) {
+      try (var reader = Files.newBufferedReader(path);
+          var parser = new CSVParser(reader, CSVFormat.DEFAULT)) {
         for (var record : parser) {
           var groundTruth = new ArrayList<Integer>(record.size());
           for (var value : record) {
@@ -62,7 +64,6 @@ public class CsvVectorLoader {
 
         return groundTruths;
       }
-
     }
   }
 }

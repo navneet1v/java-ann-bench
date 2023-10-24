@@ -7,27 +7,35 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-public record Dataset(String description, SimilarityFunction similarityFunction, int dimensions,
-                      List<float[]> train, List<float[]> test, List<List<Integer>> groundTruth) {
+public record Dataset(
+    String description,
+    SimilarityFunction similarityFunction,
+    int dimensions,
+    List<float[]> train,
+    List<float[]> test,
+    List<List<Integer>> groundTruth) {
 
   public static Dataset fromDescription(Path datasetPath, String description)
       throws IOException, InterruptedException {
     var parts = description.split("_");
     Preconditions.checkArgument(parts.length == 2, "unexpected dataset format: %s", description);
-    Preconditions.checkArgument(parts[0].equals("ann-benchmarks"),
-        "unexpected dataset collection name: %s", parts[0]);
+    Preconditions.checkArgument(
+        parts[0].equals("ann-benchmarks"), "unexpected dataset collection name: %s", parts[0]);
 
     var name = parts[1];
-    var annBenchmarksDataset = Arrays.stream(Datasets.values())
-        .filter(annDataset -> annDataset.description.equals(name)).findFirst();
-    Preconditions.checkArgument(annBenchmarksDataset.isPresent(), "unexpected dataset name: %s",
-        name);
+    var annBenchmarksDataset =
+        Arrays.stream(Datasets.values())
+            .filter(annDataset -> annDataset.description.equals(name))
+            .findFirst();
+    Preconditions.checkArgument(
+        annBenchmarksDataset.isPresent(), "unexpected dataset name: %s", name);
 
-    return AnnBenchmarkDatasets.load(annBenchmarksDataset.get(),
-        datasetPath.resolve("ann-benchmarks"));
+    return AnnBenchmarkDatasets.load(
+        annBenchmarksDataset.get(), datasetPath.resolve("ann-benchmarks"));
   }
 
-  static Dataset fromCsv(String description, int dimensions, SimilarityFunction similarityFunction, Path path)
+  static Dataset fromCsv(
+      String description, int dimensions, SimilarityFunction similarityFunction, Path path)
       throws IOException {
     var trainPath = path.resolve("train.csv");
     Preconditions.checkArgument(trainPath.toFile().exists());
@@ -43,5 +51,4 @@ public record Dataset(String description, SimilarityFunction similarityFunction,
 
     return new Dataset(description, similarityFunction, dimensions, train, test, neighbors);
   }
-
 }

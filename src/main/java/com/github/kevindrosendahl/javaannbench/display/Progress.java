@@ -7,5 +7,4 @@ public interface Progress extends AutoCloseable {
   void inc(int value);
 
   void incTo(int value);
-
 }

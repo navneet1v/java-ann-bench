@@ -11,13 +11,15 @@ import oshi.SystemInfo;
 
 public class Recall {
 
-  public record Results(DescriptiveStatistics recall, DescriptiveStatistics executionDurationMicros,
-                        DescriptiveStatistics minorFaults, DescriptiveStatistics majorFaults) {
+  public record Results(
+      DescriptiveStatistics recall,
+      DescriptiveStatistics executionDurationMicros,
+      DescriptiveStatistics minorFaults,
+      DescriptiveStatistics majorFaults) {}
 
-  }
-
-  public static Results test(Index.Querier index, List<float[]> queries, int k,
-      List<List<Integer>> groundTruths) throws IOException {
+  public static Results test(
+      Index.Querier index, List<float[]> queries, int k, List<List<Integer>> groundTruths)
+      throws IOException {
     var systemInfo = new SystemInfo();
     var process = systemInfo.getOperatingSystem().getCurrentProcess();
 
@@ -56,5 +58,4 @@ public class Recall {
 
     return new Results(recalls, executionDurations, minorFaults, majorFaults);
   }
-
 }

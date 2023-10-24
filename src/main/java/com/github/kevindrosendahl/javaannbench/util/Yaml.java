@@ -36,12 +36,11 @@ public class Yaml {
     }
   }
 
-  public  static <T> T fromYaml(File yaml, Class<T> clazz) throws IOException {
+  public static <T> T fromYaml(File yaml, Class<T> clazz) throws IOException {
     try {
       return YAML_MAPPER.readValue(yaml, clazz);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
   }
-
 }
