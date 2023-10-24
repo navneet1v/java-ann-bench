@@ -33,11 +33,11 @@ public class BenchRunner implements Runnable {
   @Option(names = {"-k", "--k"})
   private int k;
 
-//  @Option(names = {"-d", "--dataset"}, required = true)
+  //  @Option(names = {"-d", "--dataset"}, required = true)
   @Option(names = {"-d", "--dataset"})
   private String dataset;
 
-//  @Option(names = {"-i", "--index"}, required = true)
+  //  @Option(names = {"-i", "--index"}, required = true)
   @Option(names = {"-i", "--index"})
   private String index;
 
@@ -59,9 +59,6 @@ public class BenchRunner implements Runnable {
   }
 
   private void throwableRun() throws Exception {
-//    System.out.println("TerminalBuilder.builder().build().getWidth() = " + TerminalBuilder.builder().build().getWidth());
-//    System.exit(0);
-
     Preconditions.checkArgument(!(this.build && this.query), "cannot build and query");
     Preconditions.checkArgument(this.build || this.query, "cannot build and query");
 
@@ -84,15 +81,24 @@ public class BenchRunner implements Runnable {
     var start = Instant.now();
     try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
       try (var progress = ProgressBar.create("build", dataset.train().size())) {
-        index.build(dataset.train(), progress);
+        for (var vector : dataset.train()) {
+          index.add(vector);
+          progress.inc();
+        }
+
       }
 
+      var endAddVectors = Instant.now();
+      LOGGER.info("finished adding vectors in {}, committing index",
+          Duration.between(start, endAddVectors));
+
+      index.commit();
+
       var end = Instant.now();
-      var duration = Duration.between(start, end);
-      var bytes = index.size();
+      LOGGER.info("finished committing index in {}", Duration.between(endAddVectors, end));
 
       LOGGER.info("completed building index for {}: total time {}, total size {}",
-          index.description(), duration, Bytes.ofBytes(bytes));
+          index.description(), Duration.between(start, end), Bytes.ofBytes(index.size()));
     }
   }
 

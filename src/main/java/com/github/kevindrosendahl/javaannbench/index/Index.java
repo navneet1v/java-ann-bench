@@ -1,7 +1,6 @@
 package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
-import com.github.kevindrosendahl.javaannbench.display.Progress;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -16,7 +15,9 @@ public interface Index extends AutoCloseable {
 
   interface Builder extends Index {
 
-    void build(List<float[]> vectors, Progress progress) throws IOException;
+    void add(float[] vector) throws IOException;
+
+    void commit() throws IOException;
 
     long size() throws IOException;
 

@@ -45,16 +45,16 @@ public final class LuceneHnswIndex {
   public final static class Builder implements Index.Builder {
 
     private final MMapDirectory directory;
-    private final Codec codec;
+    private final IndexWriter writer;
     private final HnswProvider provider;
     private final int maxConn;
     private final int beamWidth;
     private final VectorSimilarityFunction similarityFunction;
 
-    private Builder(MMapDirectory directory, Codec codec, HnswProvider provider, int maxConn,
+    private Builder(MMapDirectory directory, IndexWriter writer, HnswProvider provider, int maxConn,
         int beamWidth, VectorSimilarityFunction similarityFunction) {
       this.directory = directory;
-      this.codec = codec;
+      this.writer = writer;
       this.provider = provider;
       this.maxConn = maxConn;
       this.beamWidth = beamWidth;
@@ -69,11 +69,24 @@ public final class LuceneHnswIndex {
       Preconditions.checkArgument(buildParameters.size() == 2,
           "unexpected number of build parameters. expected 2, got %s", buildParameters.size());
       Preconditions.checkArgument(buildParameters.containsKey("M"), "must specify M");
-      Preconditions.checkArgument(buildParameters.containsKey("efConstruction"), "must specify efConstruction");
+      Preconditions.checkArgument(buildParameters.containsKey("efConstruction"),
+          "must specify efConstruction");
       var maxConn = Integer.parseInt(buildParameters.get("M"));
       var beamWidth = Integer.parseInt(buildParameters.get("efConstruction"));
 
-      var luceneCodec = switch (provider) {
+      var similarity = switch (similarityFunction) {
+        case COSINE -> VectorSimilarityFunction.COSINE;
+        case DOT_PRODUCT -> VectorSimilarityFunction.DOT_PRODUCT;
+        case EUCLIDEAN -> VectorSimilarityFunction.EUCLIDEAN;
+      };
+
+      var description = buildDescription(provider, maxConn, beamWidth);
+      var path = indexesPath.resolve(description);
+      Preconditions.checkArgument(!path.toFile().exists(), "index already exists at {}", path);
+
+      var directory = new MMapDirectory(path);
+
+      var codec = switch (provider) {
         case LUCENE_95 -> new Lucene95Codec() {
           @Override
           public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
@@ -87,33 +100,21 @@ public final class LuceneHnswIndex {
           }
         };
       };
+      var writer = new IndexWriter(directory,
+          new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(2 * 1024));
 
-      var similarity = switch (similarityFunction) {
-        case COSINE -> VectorSimilarityFunction.COSINE;
-        case DOT_PRODUCT -> VectorSimilarityFunction.DOT_PRODUCT;
-        case EUCLIDEAN -> VectorSimilarityFunction.EUCLIDEAN;
-      };
-
-      var description = buildDescription(provider, maxConn, beamWidth);
-      var path = indexesPath.resolve(description);
-      Preconditions.checkArgument(!path.toFile().exists(), "index already exists at {}", path);
-
-      var directory = new MMapDirectory(path);
-      return new LuceneHnswIndex.Builder(directory, luceneCodec, provider, maxConn, beamWidth,
+      return new LuceneHnswIndex.Builder(directory, writer, provider, maxConn, beamWidth,
           similarity);
     }
 
-    public void build(List<float[]> vectors, Progress progress) throws IOException {
-      try (var writer = new IndexWriter(this.directory,
-          new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(2 * 1024))) {
-        var doc = new Document();
-        for (var vector : vectors) {
-          doc.clear();
-          doc.add(new KnnFloatVectorField(VECTOR_FIELD, vector, this.similarityFunction));
-          writer.addDocument(doc);
-          progress.inc();
-        }
-      }
+    public void add(float[] vector) throws IOException {
+      var doc = new Document();
+      doc.add(new KnnFloatVectorField(VECTOR_FIELD, vector, this.similarityFunction));
+      this.writer.addDocument(doc);
+    }
+
+    public void commit() throws IOException {
+      this.writer.commit();
     }
 
     public long size() {
@@ -127,6 +128,7 @@ public final class LuceneHnswIndex {
 
     @Override
     public void close() throws Exception {
+      this.writer.close();
       this.directory.close();
     }
 
@@ -168,7 +170,8 @@ public final class LuceneHnswIndex {
       Preconditions.checkArgument(buildParameters.size() == 2,
           "unexpected number of build parameters. expected 2, got %s", buildParameters.size());
       Preconditions.checkArgument(buildParameters.containsKey("M"), "must specify M");
-      Preconditions.checkArgument(buildParameters.containsKey("efConstruction"), "must specify efConstruction");
+      Preconditions.checkArgument(buildParameters.containsKey("efConstruction"),
+          "must specify efConstruction");
       var maxConn = Integer.parseInt(buildParameters.get("M"));
       var beamWidth = Integer.parseInt(buildParameters.get("efConstruction"));
 
