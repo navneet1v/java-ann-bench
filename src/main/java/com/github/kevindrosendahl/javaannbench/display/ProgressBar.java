@@ -10,8 +10,13 @@ public class ProgressBar implements Progress {
 
   public static ProgressBar create(String description, int size) {
     var wrapped = me.tongfei.progressbar.ProgressBar.builder().setTaskName(description)
-        .setUpdateIntervalMillis(250)
-        .setInitialMax(size).build();
+        .setUpdateIntervalMillis(250).setInitialMax(size).build();
+    return new ProgressBar(wrapped);
+  }
+
+  public static ProgressBar create(String description, int size, String unitName, long unitSize) {
+    var wrapped = me.tongfei.progressbar.ProgressBar.builder().setTaskName(description)
+        .setUpdateIntervalMillis(250).setInitialMax(size).setUnit(unitName, unitSize).build();
     return new ProgressBar(wrapped);
   }
 

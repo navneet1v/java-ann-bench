@@ -2,16 +2,15 @@ package com.github.kevindrosendahl.javaannbench;
 
 import com.github.kevindrosendahl.javaannbench.bench.Recall;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
-import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.index.Index;
-import com.github.kevindrosendahl.javaannbench.index.LuceneHnswIndex;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import org.jline.terminal.TerminalBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -34,10 +33,12 @@ public class BenchRunner implements Runnable {
   @Option(names = {"-k", "--k"})
   private int k;
 
-  @Option(names = {"-d", "--dataset"}, required = true)
+//  @Option(names = {"-d", "--dataset"}, required = true)
+  @Option(names = {"-d", "--dataset"})
   private String dataset;
 
-  @Option(names = {"-i", "--index"}, required = true)
+//  @Option(names = {"-i", "--index"}, required = true)
+  @Option(names = {"-i", "--index"})
   private String index;
 
   public static void main(String[] args) {
@@ -58,6 +59,9 @@ public class BenchRunner implements Runnable {
   }
 
   private void throwableRun() throws Exception {
+//    System.out.println("TerminalBuilder.builder().build().getWidth() = " + TerminalBuilder.builder().build().getWidth());
+//    System.exit(0);
+
     Preconditions.checkArgument(!(this.build && this.query), "cannot build and query");
     Preconditions.checkArgument(this.build || this.query, "cannot build and query");
 

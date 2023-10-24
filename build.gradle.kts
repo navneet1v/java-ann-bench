@@ -34,8 +34,9 @@ dependencies {
     implementation("com.github.oshi:oshi-core:6.4.3")
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("org.slf4j:jul-to-slf4j:2.0.9")
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.13.0")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.3")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
+    implementation("org.jline:jline:3.23.0")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
