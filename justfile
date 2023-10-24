@@ -1,3 +1,5 @@
+init: update-jvector update-lucene
+
 update-jvector:
   git -C submodules/jvector pull origin ann-sandbox
   cd submodules/jvector && ./mvnw clean package
