@@ -102,7 +102,7 @@ public class BenchRunner implements Runnable {
       LOGGER.info("\taverage duration {}",
           Duration.ofNanos((long) result.executionDurationMicros().getMean()));
       LOGGER.info("\taverage minor faults {}", result.minorFaults().getMean());
-      LOGGER.info("\taverage major faults {}", result.minorFaults().getMean());
+      LOGGER.info("\taverage major faults {}", result.majorFaults().getMean());
       LOGGER.info("\tmax duration {}",
           Duration.ofNanos((long) result.executionDurationMicros().getMax()));
       LOGGER.info("\tmax minor faults {}", result.minorFaults().getMax());

@@ -33,7 +33,7 @@ public class Recall {
       Preconditions.checkArgument(process.updateAttributes(), "failed to update process stats");
       var startMinorFaults = process.getMinorFaults();
       var startMajorFaults = process.getMajorFaults();
-      
+
       var start = Instant.now();
       var results = index.query(query, k);
       var end = Instant.now();
