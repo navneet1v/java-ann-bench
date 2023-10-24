@@ -1,3 +1,9 @@
+update-jvector:
+  git -C submodules/jvector pull origin ann-sandbox
+  cd submodules/jvector && ./mvnw clean package
+  mkdir -p libs
+  cp submodules/jvector/jvector-multirelease/target/jvector-1.0.3-SNAPSHOT.jar libs/
+
 update-lucene:
   git -C submodules/lucene pull origin ann-sandbox
   cd submodules/lucene && ./gradlew jar
