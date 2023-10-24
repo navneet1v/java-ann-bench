@@ -21,6 +21,16 @@ public class ProgressBar implements Progress {
   }
 
   @Override
+  public void inc(int value) {
+    this.wrapped.stepBy(value);
+  }
+
+  @Override
+  public void incTo(int value) {
+    this.wrapped.stepTo(value);
+  }
+
+  @Override
   public void close() {
     this.wrapped.close();
 

@@ -6,6 +6,7 @@ import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.index.Index;
 import com.github.kevindrosendahl.javaannbench.index.LuceneHnswIndex;
+import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -87,7 +88,7 @@ public class BenchRunner implements Runnable {
       var bytes = index.size();
 
       LOGGER.info("completed building index for {}: total time {}, total size {}",
-          index.description(), duration, readableBytes(bytes));
+          index.description(), duration, Bytes.ofBytes(bytes));
     }
   }
 
@@ -112,17 +113,5 @@ public class BenchRunner implements Runnable {
 
   private Dataset dataset(Path datasetPath) throws IOException, InterruptedException {
     return Dataset.fromDescription(datasetPath, this.dataset);
-  }
-
-  private static String readableBytes(long bytes) {
-    // Adopted from https://stackoverflow.com/a/3758880
-    return bytes < 1024L ? bytes + " B"
-        : bytes <= 0xfffccccccccccccL >> 40 ? String.format("%.1f KiB", bytes / 0x1p10)
-            : bytes <= 0xfffccccccccccccL >> 30 ? String.format("%.1f MiB", bytes / 0x1p20)
-                : bytes <= 0xfffccccccccccccL >> 20 ? String.format("%.1f GiB", bytes / 0x1p30)
-                    : bytes <= 0xfffccccccccccccL >> 10 ? String.format("%.1f TiB", bytes / 0x1p40)
-                        : bytes <= 0xfffccccccccccccL ? String.format("%.1f PiB",
-                            (bytes >> 10) / 0x1p40)
-                            : String.format("%.1f EiB", (bytes >> 20) / 0x1p40);
   }
 }

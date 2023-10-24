@@ -44,6 +44,7 @@ bin/
 ### datasets and index builds ###
 datasets
 indexes
+results
 
 ### dependencies ###
 libs

@@ -1,12 +1,13 @@
 package com.github.kevindrosendahl.javaannbench.dataset;
 
+import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
+import com.github.kevindrosendahl.javaannbench.util.Bytes;
+import com.github.kevindrosendahl.javaannbench.util.Yaml;
 import com.google.common.base.Preconditions;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,13 +15,14 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectAttributesRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 public class AnnBenchmarkDatasets {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(AnnBenchmarkDatasets.class);
-  private static final String PROGRESS = "progress.properties";
+  private static final String PROGRESS = "progress.yaml";
   private static final String BUCKET = "kevin-vector-search";
   private static final String KEY = "ann-datasets.tar.gz";
   private static final String EXTRACTED = "ann-datasets";
@@ -65,26 +67,47 @@ public class AnnBenchmarkDatasets {
     }
 
     if (directory.resolve(KEY).toFile().exists()) {
-      LOGGER.info(
+      LOGGER.warn(
           "ann-datasets.tar.gz exists at {} but did not finish downloading. wiping and starting download over",
           directory);
       Files.delete(directory.resolve(KEY));
     }
 
-    LOGGER.info("downloading ann-datasets.tar.gz to {}", directory);
     Files.createDirectories(directory);
 
     Region region = Region.US_EAST_1;
     try (S3Client s3 = S3Client.builder().region(region)
         .credentialsProvider(DefaultCredentialsProvider.create()).build()) {
 
-      s3.getObjectAttributes(GetObjectAttributesRequest.builder().bucket(BUCKET).key(KEY).build())
-          .objectSize();
-
-      GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(BUCKET).key(KEY)
+      HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
+          .bucket(BUCKET)
+          .key(KEY)
           .build();
 
-      s3.getObject(getObjectRequest, ResponseTransformer.toFile(directory.resolve(KEY)));
+      HeadObjectResponse headObjectResponse = s3.headObject(headObjectRequest);
+      var totalSize = Bytes.ofBytes(headObjectResponse.contentLength());
+
+      var filePath = directory.resolve(KEY);
+      var downloadFuture = CompletableFuture.runAsync(() -> {
+        var getObjectRequest = GetObjectRequest.builder().bucket(BUCKET).key(KEY).build();
+        s3.getObject(getObjectRequest, ResponseTransformer.toFile(filePath));
+      });
+
+      try (var progressBar = ProgressBar.create("downloading ann-datasets.tar.gz",
+          (int) totalSize.toMebi())) {
+        while (!downloadFuture.isDone()) {
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+
+          if (Files.exists(filePath)) {
+            var size = (int) Bytes.ofBytes(Files.size(filePath)).toMebi();
+            progressBar.incTo(size);
+          }
+        }
+      }
     }
 
     new Progress(true, false).store(directory);
@@ -114,22 +137,13 @@ public class AnnBenchmarkDatasets {
 
   private record Progress(boolean downloaded, boolean extracted) {
 
-    private final static String DOWNLOADED = "downloaded";
-    private final static String EXTRACTED = "extracted";
-
     static Progress load(Path directory) throws IOException {
       var file = directory.resolve(PROGRESS).toFile();
       if (!file.exists()) {
         return new Progress(false, false);
       }
 
-      try (var input = new FileInputStream(file)) {
-        var properties = new Properties();
-        properties.load(input);
-        return new Progress(
-            Boolean.parseBoolean(properties.getProperty(DOWNLOADED, Boolean.FALSE.toString())),
-            Boolean.parseBoolean(properties.getProperty(EXTRACTED, Boolean.FALSE.toString())));
-      }
+      return Yaml.fromYaml(file, Progress.class);
     }
 
     void store(Path directory) throws IOException {
@@ -138,12 +152,7 @@ public class AnnBenchmarkDatasets {
         Files.createFile(file.toPath());
       }
 
-      try (var output = new FileOutputStream(file)) {
-        var properties = new Properties();
-        properties.setProperty(DOWNLOADED, Boolean.toString(this.downloaded));
-        properties.setProperty(EXTRACTED, Boolean.toString(this.extracted));
-        properties.store(output, null);
-      }
+      Yaml.writeYaml(this, file);
     }
   }
 }
