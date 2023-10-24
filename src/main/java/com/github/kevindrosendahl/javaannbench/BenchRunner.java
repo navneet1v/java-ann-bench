@@ -3,15 +3,17 @@ package com.github.kevindrosendahl.javaannbench;
 import com.github.kevindrosendahl.javaannbench.bench.Recall;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
+import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.index.Index;
 import com.github.kevindrosendahl.javaannbench.index.LuceneHnswIndex;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.Duration;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -28,13 +30,18 @@ public class BenchRunner implements Runnable {
   @Option(names = {"-q", "--query"})
   private boolean query;
 
+  @Option(names = {"-k", "--k"})
+  private int k;
+
   @Option(names = {"-d", "--dataset"}, required = true)
   private String dataset;
 
   @Option(names = {"-i", "--index"}, required = true)
-  private String[] indexes;
+  private String index;
 
   public static void main(String[] args) {
+    SLF4JBridgeHandler.removeHandlersForRootLogger();
+    SLF4JBridgeHandler.install();
     CommandLine cmd = new CommandLine(new BenchRunner());
     int exitCode = cmd.execute(args);
     System.exit(exitCode);
@@ -50,33 +57,56 @@ public class BenchRunner implements Runnable {
   }
 
   private void throwableRun() throws Exception {
+    Preconditions.checkArgument(!(this.build && this.query), "cannot build and query");
+    Preconditions.checkArgument(this.build || this.query, "cannot build and query");
+
     var workingDirectory = Path.of(System.getProperty("user.dir"));
     var datasetDirectory = workingDirectory.resolve("datasets");
-    var indexesDirectory = workingDirectory.resolve("indexes");
+    var indexesPath = workingDirectory.resolve("indexes");
 
     var dataset = dataset(datasetDirectory);
-    var indexes = indexes(indexesDirectory, dataset.similarityFunction());
 
     if (this.build) {
-      for (var index : indexes) {
-        switch (index) {
-          case LuceneHnswIndex luceneHnswIndex -> luceneHnswIndex.build(dataset.train());
-        }
-      }
+      build(dataset, indexesPath);
     }
 
     if (this.query) {
-      for (var index : indexes) {
-        // FIXME: take in k and query parameters
-        var result = switch (index) {
-          case LuceneHnswIndex luceneHnswIndex ->
-              Recall.test((vector, k) -> luceneHnswIndex.query(vector, k, k), dataset.test(), 10,
-                  dataset.groundTruth());
-        };
+      query(dataset, indexesPath);
+    }
+  }
 
-        LOGGER.info("completed recall test for {}: average recall {}, average duration {}",
-            index.description(), result.recall(), result.averageExecutionTime());
+  private void build(Dataset dataset, Path indexesPath) throws Exception {
+    var start = Instant.now();
+    try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
+      try (var progress = ProgressBar.create("build", dataset.train().size())) {
+        index.build(dataset.train(), progress);
       }
+
+      var end = Instant.now();
+      var duration = Duration.between(start, end);
+      var bytes = index.size();
+
+      LOGGER.info("completed building index for {}: total time {}, total size {}",
+          index.description(), duration, readableBytes(bytes));
+    }
+  }
+
+  private void query(Dataset dataset, Path indexesPath) throws Exception {
+    Preconditions.checkArgument(this.k != 0, "must supply k if running query");
+
+    try (var index = Index.Querier.fromDescription(dataset, indexesPath, this.index)) {
+      var result = Recall.test(index, dataset.test(), this.k, dataset.groundTruth());
+
+      LOGGER.info("completed recall test for {}:", index.description());
+      LOGGER.info("\taverage recall {}", result.recall().getMean());
+      LOGGER.info("\taverage duration {}",
+          Duration.ofNanos((long) result.executionDurationMicros().getMean()));
+      LOGGER.info("\taverage minor faults {}", result.minorFaults().getMean());
+      LOGGER.info("\taverage major faults {}", result.minorFaults().getMean());
+      LOGGER.info("\tmax duration {}",
+          Duration.ofNanos((long) result.executionDurationMicros().getMax()));
+      LOGGER.info("\tmax minor faults {}", result.minorFaults().getMax());
+      LOGGER.info("\tmax major faults {}", result.majorFaults().getMax());
     }
   }
 
@@ -84,16 +114,15 @@ public class BenchRunner implements Runnable {
     return Dataset.fromDescription(datasetPath, this.dataset);
   }
 
-  private List<Index> indexes(Path indexingPath, SimilarityFunction similarityFunction)
-      throws IOException {
-    Preconditions.checkArgument(this.indexes.length != 0, "must supply index descriptions");
-
-    var indexes = new ArrayList<Index>(this.indexes.length);
-    for (var description : this.indexes) {
-      var index = Index.fromDescription(indexingPath, similarityFunction, description);
-      indexes.add(index);
-    }
-
-    return indexes;
+  private static String readableBytes(long bytes) {
+    // Adopted from https://stackoverflow.com/a/3758880
+    return bytes < 1024L ? bytes + " B"
+        : bytes <= 0xfffccccccccccccL >> 40 ? String.format("%.1f KiB", bytes / 0x1p10)
+            : bytes <= 0xfffccccccccccccL >> 30 ? String.format("%.1f MiB", bytes / 0x1p20)
+                : bytes <= 0xfffccccccccccccL >> 20 ? String.format("%.1f GiB", bytes / 0x1p30)
+                    : bytes <= 0xfffccccccccccccL >> 10 ? String.format("%.1f TiB", bytes / 0x1p40)
+                        : bytes <= 0xfffccccccccccccL ? String.format("%.1f PiB",
+                            (bytes >> 10) / 0x1p40)
+                            : String.format("%.1f EiB", (bytes >> 20) / 0x1p40);
   }
 }

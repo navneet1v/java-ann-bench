@@ -30,6 +30,10 @@ dependencies {
     implementation("commons-io:commons-io:2.14.0")
     implementation(files("libs/lucene-core-10.0.0-SNAPSHOT.jar"))
     implementation("info.picocli:picocli:4.7.5")
+    implementation("me.tongfei:progressbar:0.10.0")
+    implementation("com.github.oshi:oshi-core:6.4.3")
+    implementation("org.apache.commons:commons-math3:3.6.1")
+    implementation("org.slf4j:jul-to-slf4j:2.0.9")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")

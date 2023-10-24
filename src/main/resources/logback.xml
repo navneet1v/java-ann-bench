@@ -5,6 +5,8 @@
     </encoder>
   </appender>
 
+  <logger name="org.apache.lucene" level="WARN"/>
+
   <root level="info">
     <appender-ref ref="STDOUT" />
   </root>

@@ -14,6 +14,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectAttributesRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 public class AnnBenchmarkDatasets {
@@ -47,7 +48,8 @@ public class AnnBenchmarkDatasets {
       throws IOException, InterruptedException {
     ensure(directory);
     var datasetDir = directory.resolve(EXTRACTED).resolve(Path.of(dataset.description));
-    return Dataset.fromCsv(dataset.dimensions, dataset.similarityFunction, datasetDir);
+    return Dataset.fromCsv("ann-benchmarks_" + dataset.description, dataset.dimensions,
+        dataset.similarityFunction, datasetDir);
   }
 
   private static void ensure(Path directory) throws IOException, InterruptedException {
@@ -58,7 +60,7 @@ public class AnnBenchmarkDatasets {
   private static void download(Path directory) throws IOException {
     var progress = Progress.load(directory);
     if (progress.downloaded) {
-      LOGGER.info("ann-datasets.tar.gz already downloaded to {}, skipping", directory);
+      LOGGER.debug("ann-datasets.tar.gz already downloaded to {}, skipping", directory);
       return;
     }
 
@@ -76,6 +78,9 @@ public class AnnBenchmarkDatasets {
     try (S3Client s3 = S3Client.builder().region(region)
         .credentialsProvider(DefaultCredentialsProvider.create()).build()) {
 
+      s3.getObjectAttributes(GetObjectAttributesRequest.builder().bucket(BUCKET).key(KEY).build())
+          .objectSize();
+
       GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(BUCKET).key(KEY)
           .build();
 
@@ -90,7 +95,7 @@ public class AnnBenchmarkDatasets {
     var progress = Progress.load(directory);
     Preconditions.checkArgument(progress.downloaded);
     if (progress.extracted) {
-      LOGGER.info("ann-datasets.tar.gz already extracted in {}, skipping", directory);
+      LOGGER.debug("ann-datasets.tar.gz already extracted in {}, skipping", directory);
       return;
     }
 

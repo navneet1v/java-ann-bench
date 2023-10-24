@@ -1,52 +1,100 @@
 package com.github.kevindrosendahl.javaannbench.index;
 
-import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
-import com.github.kevindrosendahl.javaannbench.index.LuceneHnswIndex.HnswProvider;
+import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
+import com.github.kevindrosendahl.javaannbench.display.Progress;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-public sealed interface Index permits LuceneHnswIndex {
+public interface Index extends AutoCloseable {
 
   String description();
 
-  static Index fromDescription(Path path, SimilarityFunction similarityFunction,
-      String description) throws IOException {
-    var parts = description.split("-");
-    return switch (parts[0]) {
-      case "lucene" -> fromLuceneDescription(path, similarityFunction, parts);
-      default -> throw new RuntimeException("unknown index type: " + parts[0]);
-    };
+  interface Builder extends Index {
+
+    void build(List<float[]> vectors, Progress progress) throws IOException;
+
+    long size() throws IOException;
+
+    static Builder fromDescription(Dataset dataset, Path indexesPath, String description)
+        throws IOException {
+      var parameters = Builder.Parameters.parse(description);
+      var datasetPath = indexesPath.resolve(dataset.description());
+
+      return switch (parameters.provider) {
+        case "lucene" -> LuceneHnswIndex.Builder.create(indexesPath.resolve(datasetPath),
+            dataset.similarityFunction(), parameters);
+        default -> throw new RuntimeException("unknown index provider: " + parameters.type);
+      };
+    }
+
+    record Parameters(String provider, String type, Map<String, String> buildParameters) {
+
+      public static Parameters parse(String description) {
+        var parts = description.split("_");
+        Preconditions.checkArgument(parts.length == 3, "unexpected build description format: %s",
+            description);
+
+        var provider = parts[0];
+        var type = parts[1];
+        var buildParametersString = parts[2];
+
+        var buildParameters = Arrays.stream(buildParametersString.split("-")).map(s -> s.split(":"))
+            .peek(p -> Preconditions.checkArgument(p.length == 2,
+                "unexpected build parameter description format: %s", String.join("-", p)))
+            .collect(Collectors.toMap(a -> a[0], a -> a[1]));
+
+        return new Parameters(provider, type, buildParameters);
+      }
+    }
+
+
   }
 
-  private static LuceneHnswIndex fromLuceneDescription(Path path,
-      SimilarityFunction similarityFunction, String[] parts) throws IOException {
-    Preconditions.checkArgument(parts.length == 5,
-        "expected 4 arguments for lucene index description, got %s", parts.length);
-    Preconditions.checkArgument(parts[1].equals("hnsw"), "unexpected lucene index type %s",
-        parts[1]);
+  interface Querier extends Index {
 
-    var provider = switch (parts[2]) {
-      case "lucene95" -> HnswProvider.LUCENE_95;
-      case "sandbox" -> HnswProvider.SANDBOX;
-      default -> throw new AssertionError(String.format("unexpected lucene codec %s", parts[2]));
-    };
 
-    var mPart = parts[3];
-    var mSplit = mPart.split(":");
-    Preconditions.checkArgument(mSplit.length == 2, "unexpected format for m parameter");
-    Preconditions.checkArgument(mSplit[0].equals("M"), "expected M parameter first, got %s",
-        mSplit[0]);
-    var m = Integer.parseInt(mSplit[1]);
+    List<Integer> query(float[] vector, int k) throws IOException;
 
-    var efConstructionPart = parts[4];
-    var efConstructionSplit = efConstructionPart.split(":");
-    Preconditions.checkArgument(efConstructionSplit.length == 2,
-        "unexpected format for efConstruction parameter");
-    Preconditions.checkArgument(efConstructionSplit[0].equals("efConstruction"),
-        "expected efConstruction parameter second got %s", efConstructionSplit[0]);
-    var efConstruction = Integer.parseInt(efConstructionSplit[1]);
+    static Querier fromDescription(Dataset dataset, Path indexesPath, String description)
+        throws IOException {
+      var parameters = Parameters.parse(description);
+      return switch (parameters.provider) {
+        case "lucene" ->
+            LuceneHnswIndex.Querier.create(indexesPath.resolve(dataset.description()), parameters);
+        default -> throw new RuntimeException("unknown index provider: " + parameters.provider);
+      };
+    }
 
-    return LuceneHnswIndex.create(path, provider, m, efConstruction, similarityFunction);
+    record Parameters(String provider, String type, Map<String, String> buildParameters,
+                      Map<String, String> queryParameters) {
+
+      public static Parameters parse(String description) {
+        var parts = description.split("_");
+        Preconditions.checkArgument(parts.length == 4, "unexpected query description format: %s",
+            description);
+
+        var provider = parts[0];
+        var type = parts[1];
+        var buildParametersString = parts[2];
+        var queryParametersString = parts[3];
+
+        var buildParameters = Arrays.stream(buildParametersString.split("-")).map(s -> s.split(":"))
+            .peek(p -> Preconditions.checkArgument(p.length == 2,
+                "unexpected build parameter description format: %s", String.join("-", p)))
+            .collect(Collectors.toMap(a -> a[0], a -> a[1]));
+
+        var queryParameters = Arrays.stream(queryParametersString.split("-")).map(s -> s.split(":"))
+            .peek(p -> Preconditions.checkArgument(p.length == 2,
+                "unexpected query parameter description format: %s", String.join("-", p)))
+            .collect(Collectors.toMap(a -> a[0], a -> a[1]));
+
+        return new Parameters(provider, type, buildParameters, queryParameters);
+      }
+    }
   }
 }
