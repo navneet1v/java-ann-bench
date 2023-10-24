@@ -15,7 +15,7 @@ public interface Index extends AutoCloseable {
 
   interface Builder extends Index {
 
-    void add(float[] vector) throws IOException;
+    void add(int id, float[] vector) throws IOException;
 
     void commit() throws IOException;
 

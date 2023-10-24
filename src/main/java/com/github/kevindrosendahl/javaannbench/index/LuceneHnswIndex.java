@@ -4,7 +4,7 @@ import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.codecs.KnnVectorsFormat;
@@ -13,6 +13,7 @@ import org.apache.lucene.codecs.lucene95.Lucene95HnswVectorsFormat;
 import org.apache.lucene.codecs.vectorsandbox.VectorSandboxHnswVectorsFormat;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.KnnFloatVectorField;
+import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
@@ -39,6 +40,7 @@ public final class LuceneHnswIndex {
   }
 
   private static final String VECTOR_FIELD = "vector";
+  private static final String ID_FIELD = "id";
 
   public static final class Builder implements Index.Builder {
 
@@ -116,8 +118,9 @@ public final class LuceneHnswIndex {
           directory, writer, provider, maxConn, beamWidth, similarity);
     }
 
-    public void add(float[] vector) throws IOException {
+    public void add(int id, float[] vector) throws IOException {
       var doc = new Document();
+      doc.add(new StoredField(ID_FIELD, id));
       doc.add(new KnnFloatVectorField(VECTOR_FIELD, vector, this.similarityFunction));
       this.writer.addDocument(doc);
     }
@@ -216,7 +219,20 @@ public final class LuceneHnswIndex {
     public List<Integer> query(float[] vector, int k) throws IOException {
       var query = new KnnFloatVectorQuery(VECTOR_FIELD, vector, numCandidates);
       var results = this.searcher.search(query, numCandidates);
-      return Arrays.stream(results.scoreDocs).map(scoreDoc -> scoreDoc.doc).limit(k).toList();
+      var ids = new ArrayList<Integer>(k);
+
+      for (var result : results.scoreDocs) {
+        var id =
+            this.searcher
+                .storedFields()
+                .document(result.doc)
+                .getField(ID_FIELD)
+                .numericValue()
+                .intValue();
+        ids.add(id);
+      }
+
+      return ids;
     }
 
     @Override

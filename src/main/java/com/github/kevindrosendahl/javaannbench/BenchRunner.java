@@ -78,7 +78,7 @@ public class BenchRunner implements Runnable {
     try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
       try (var progress = ProgressBar.create("build", dataset.train().size())) {
         for (var vector : dataset.train()) {
-          index.add(vector);
+          index.add(0, vector);
           progress.inc();
         }
       }
