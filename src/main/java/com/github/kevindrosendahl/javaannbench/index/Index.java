@@ -29,10 +29,9 @@ public interface Index extends AutoCloseable {
 
       return switch (parameters.provider) {
         case "lucene" -> LuceneHnswIndex.Builder.create(
-            indexesPath.resolve(datasetPath),
-            dataset.train(),
-            dataset.similarityFunction(),
-            parameters);
+            datasetPath, dataset.train(), dataset.similarityFunction(), parameters);
+        case "jvector" -> JvectorIndex.Builder.create(
+            datasetPath, dataset.train(), dataset.similarityFunction(), parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.type);
       };
     }

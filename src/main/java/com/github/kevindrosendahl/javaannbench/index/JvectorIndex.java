@@ -13,6 +13,7 @@ import io.github.jbellis.jvector.vector.VectorSimilarityFunction;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -50,11 +51,7 @@ public class JvectorIndex {
         Path indexesPath,
         RandomAccessVectorValues<float[]> vectors,
         SimilarityFunction similarityFunction,
-        Parameters parameters,
-        int M,
-        int beamWidth,
-        float neighborOverflow,
-        float alpha) {
+        Parameters parameters) {
       Preconditions.checkArgument(
           parameters.type().equals("vamana"),
           "unexpected jvector index type: %s",
@@ -75,10 +72,10 @@ public class JvectorIndex {
               vectors,
               VectorEncoding.FLOAT32,
               vectorSimilarityFunction,
-              M,
-              beamWidth,
-              neighborOverflow,
-              alpha);
+              buildParams.M,
+              buildParams.beamWidth,
+              buildParams.neighborOverflow,
+              buildParams.alpha);
 
       var numThreads =
           Optional.ofNullable(System.getenv("JVECTOR_NUM_THREADS"))
@@ -102,6 +99,7 @@ public class JvectorIndex {
             .forEach(
                 i -> {
                   this.indexBuilder.addGraphNode(i, this.vectors);
+                  progress.inc();
                 });
       }
 
@@ -127,7 +125,7 @@ public class JvectorIndex {
 
     @Override
     public Bytes size() throws IOException {
-      return Bytes.ofBytes(0);
+      return Bytes.ofBytes(Files.size(this.indexPath));
     }
 
     @Override

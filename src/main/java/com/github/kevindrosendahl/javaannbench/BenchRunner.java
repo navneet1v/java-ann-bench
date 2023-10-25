@@ -74,7 +74,7 @@ public class BenchRunner implements Runnable {
   private void build(Dataset dataset, Path indexesPath) throws Exception {
     try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
       var summary = index.build();
-      LOGGER.info("completed building index for {}:");
+      LOGGER.info("completed building index for {}:", index.description());
       LOGGER.info("\tbuild phase: {}", summary.build());
       LOGGER.info("\tcommit phase: {}", summary.commit());
       LOGGER.info("\ttotal time: {}", summary.build().plus(summary.commit()));

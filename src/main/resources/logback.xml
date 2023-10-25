@@ -6,6 +6,7 @@
   </appender>
 
   <logger name="org.apache.lucene" level="WARN"/>
+  <logger name="io.github.jbellis.jvector" level="WARN"/>
 
   <root level="info">
     <appender-ref ref="STDOUT" />
