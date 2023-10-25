@@ -30,7 +30,7 @@ public interface Index extends AutoCloseable {
       return switch (parameters.provider) {
         case "lucene" -> LuceneHnswIndex.Builder.create(
             datasetPath, dataset.train(), dataset.similarityFunction(), parameters);
-        case "jvector" -> JvectorIndex.Builder.create(
+        case "jvector" -> JVectorIndex.Builder.create(
             datasetPath, dataset.train(), dataset.similarityFunction(), parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.type);
       };
@@ -72,9 +72,13 @@ public interface Index extends AutoCloseable {
     static Querier fromDescription(Dataset dataset, Path indexesPath, String description)
         throws IOException {
       var parameters = Parameters.parse(description);
+      var datasetPath = indexesPath.resolve(dataset.description());
+
       return switch (parameters.provider) {
         case "lucene" -> LuceneHnswIndex.Querier.create(
             indexesPath.resolve(dataset.description()), parameters);
+        case "jvector" -> JVectorIndex.Querier.create(
+            datasetPath, dataset.similarityFunction(), parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.provider);
       };
     }

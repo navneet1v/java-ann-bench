@@ -229,7 +229,8 @@ public final class LuceneHnswIndex {
       var results = this.searcher.search(query, queryParams.numCandidates);
       var ids = new ArrayList<Integer>(k);
 
-      for (var result : results.scoreDocs) {
+      for (int i = 0; i < k; i++) {
+        var result = results.scoreDocs[i];
         var id =
             this.searcher
                 .storedFields()

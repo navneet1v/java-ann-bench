@@ -44,11 +44,11 @@ public record Dataset(
       SimilarityFunction similarityFunction,
       Path path)
       throws IOException {
-    var trainPath = path.resolve("train.fvec");
+    var trainPath = path.resolve("train.fvecs");
     Preconditions.checkArgument(trainPath.toFile().exists());
     var train = new MMapRandomAccessVectorValues(trainPath, numTrainVectors, dimensions);
 
-    var testPath = path.resolve("test.fvec");
+    var testPath = path.resolve("test.fvecs");
     Preconditions.checkArgument(testPath.toFile().exists());
     var test = new MMapRandomAccessVectorValues(testPath, numTestVectors, dimensions);
 
