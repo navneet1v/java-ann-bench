@@ -3,6 +3,7 @@ package com.github.kevindrosendahl.javaannbench.index;
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
+import com.github.kevindrosendahl.javaannbench.util.Records;
 import com.google.common.base.Preconditions;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.IOException;
@@ -44,6 +45,10 @@ public final class LuceneHnswIndex {
     }
   }
 
+  public record BuildParameters(int maxConn, int beamWidth) {}
+
+  public record QueryParameters(int numCandidates) {}
+
   private static final String VECTOR_FIELD = "vector";
   private static final String ID_FIELD = "id";
 
@@ -53,8 +58,7 @@ public final class LuceneHnswIndex {
     private final MMapDirectory directory;
     private final IndexWriter writer;
     private final HnswProvider provider;
-    private final int maxConn;
-    private final int beamWidth;
+    private final BuildParameters buildParams;
     private final VectorSimilarityFunction similarityFunction;
 
     private Builder(
@@ -62,15 +66,13 @@ public final class LuceneHnswIndex {
         MMapDirectory directory,
         IndexWriter writer,
         HnswProvider provider,
-        int maxConn,
-        int beamWidth,
+        BuildParameters buildParams,
         VectorSimilarityFunction similarityFunction) {
       this.vectors = vectors;
       this.directory = directory;
       this.writer = writer;
       this.provider = provider;
-      this.maxConn = maxConn;
-      this.beamWidth = beamWidth;
+      this.buildParams = buildParams;
       this.similarityFunction = similarityFunction;
     }
 
@@ -82,16 +84,8 @@ public final class LuceneHnswIndex {
         throws IOException {
       var provider = HnswProvider.parse(parameters.type());
 
-      var buildParameters = parameters.buildParameters();
-      Preconditions.checkArgument(
-          buildParameters.size() == 2,
-          "unexpected number of build parameters. expected 2, got %s",
-          buildParameters.size());
-      Preconditions.checkArgument(buildParameters.containsKey("maxConn"), "must specify maxConn");
-      Preconditions.checkArgument(
-          buildParameters.containsKey("beamWidth"), "must specify beamWidth");
-      var maxConn = Integer.parseInt(buildParameters.get("maxConn"));
-      var beamWidth = Integer.parseInt(buildParameters.get("beamWidth"));
+      var buildParams =
+          Records.fromMap(parameters.buildParameters(), BuildParameters.class, "build parameters");
 
       var similarity =
           switch (similarityFunction) {
@@ -100,7 +94,7 @@ public final class LuceneHnswIndex {
             case EUCLIDEAN -> VectorSimilarityFunction.EUCLIDEAN;
           };
 
-      var description = buildDescription(provider, maxConn, beamWidth);
+      var description = buildDescription(provider, buildParams);
       var path = indexesPath.resolve(description);
       Preconditions.checkArgument(!path.toFile().exists(), "index already exists at %s", path);
 
@@ -111,13 +105,14 @@ public final class LuceneHnswIndex {
             case LUCENE_95 -> new Lucene95Codec() {
               @Override
               public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-                return new Lucene95HnswVectorsFormat(maxConn, beamWidth);
+                return new Lucene95HnswVectorsFormat(buildParams.maxConn, buildParams.beamWidth);
               }
             };
             case SANDBOX -> new Lucene95Codec() {
               @Override
               public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-                return new VectorSandboxHnswVectorsFormat(maxConn, beamWidth);
+                return new VectorSandboxHnswVectorsFormat(
+                    buildParams.maxConn, buildParams.beamWidth);
               }
             };
           };
@@ -126,7 +121,7 @@ public final class LuceneHnswIndex {
               directory, new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(2 * 1024));
 
       return new LuceneHnswIndex.Builder(
-          vectors, directory, writer, provider, maxConn, beamWidth, similarity);
+          vectors, directory, writer, provider, buildParams, similarity);
     }
 
     @Override
@@ -164,7 +159,7 @@ public final class LuceneHnswIndex {
 
     @Override
     public String description() {
-      return buildDescription(this.provider, this.maxConn, this.beamWidth);
+      return buildDescription(this.provider, this.buildParams);
     }
 
     @Override
@@ -173,14 +168,15 @@ public final class LuceneHnswIndex {
       this.directory.close();
     }
 
-    private static String buildDescription(HnswProvider provider, int maxConn, int beamWidth) {
+    private static String buildDescription(HnswProvider provider, BuildParameters params) {
       var providerDescription =
           switch (provider) {
             case LUCENE_95 -> "lucene95";
             case SANDBOX -> "sandbox";
           };
       return String.format(
-          "lucene_hnsw-%s_maxConn:%s-beamWidth:%s", providerDescription, maxConn, beamWidth);
+          "lucene_hnsw-%s_maxConn:%s-beamWidth:%s",
+          providerDescription, params.maxConn, params.beamWidth);
     }
   }
 
@@ -190,51 +186,33 @@ public final class LuceneHnswIndex {
     private final IndexReader reader;
     private final IndexSearcher searcher;
     private final HnswProvider provider;
-    private final int maxConn;
-    private final int beamWidth;
-    private final int numCandidates;
+    private final BuildParameters buildParams;
+    private final QueryParameters queryParams;
 
     private Querier(
         Directory directory,
         IndexReader reader,
         IndexSearcher searcher,
         HnswProvider provider,
-        int maxConn,
-        int beamWidth,
-        int numCandidates) {
+        BuildParameters buildParams,
+        QueryParameters queryParams) {
       this.directory = directory;
       this.reader = reader;
       this.searcher = searcher;
       this.provider = provider;
-      this.maxConn = maxConn;
-      this.beamWidth = beamWidth;
-      this.numCandidates = numCandidates;
+      this.buildParams = buildParams;
+      this.queryParams = queryParams;
     }
 
     public static Index.Querier create(Path indexesPath, Parameters parameters) throws IOException {
       var provider = HnswProvider.parse(parameters.type());
 
-      var buildParameters = parameters.buildParameters();
-      Preconditions.checkArgument(
-          buildParameters.size() == 2,
-          "unexpected number of build parameters. expected 2, got %s",
-          buildParameters.size());
-      Preconditions.checkArgument(buildParameters.containsKey("maxConn"), "must specify maxConn");
-      Preconditions.checkArgument(
-          buildParameters.containsKey("beamWidth"), "must specify beamWidth");
-      var maxConn = Integer.parseInt(buildParameters.get("maxConn"));
-      var beamWidth = Integer.parseInt(buildParameters.get("beamWidth"));
+      var buildParams =
+          Records.fromMap(parameters.buildParameters(), BuildParameters.class, "build parameters");
+      var queryParams =
+          Records.fromMap(parameters.queryParameters(), QueryParameters.class, "query parameters");
 
-      var queryParameters = parameters.queryParameters();
-      Preconditions.checkArgument(
-          queryParameters.size() == 1,
-          "unexpected number of query parameters. expected 1, got %s",
-          queryParameters.size());
-      Preconditions.checkArgument(
-          queryParameters.containsKey("numCandidates"), "must specify numCandidates");
-      var numCandidates = Integer.parseInt(queryParameters.get("numCandidates"));
-
-      var buildDescription = LuceneHnswIndex.Builder.buildDescription(provider, maxConn, beamWidth);
+      var buildDescription = LuceneHnswIndex.Builder.buildDescription(provider, buildParams);
       var path = indexesPath.resolve(buildDescription);
       Preconditions.checkArgument(path.toFile().exists(), "index does not exist at {}", path);
 
@@ -242,13 +220,13 @@ public final class LuceneHnswIndex {
       var reader = DirectoryReader.open(directory);
       var searcher = new IndexSearcher(reader);
       return new LuceneHnswIndex.Querier(
-          directory, reader, searcher, provider, maxConn, beamWidth, numCandidates);
+          directory, reader, searcher, provider, buildParams, queryParams);
     }
 
     @Override
     public List<Integer> query(float[] vector, int k) throws IOException {
-      var query = new KnnFloatVectorQuery(VECTOR_FIELD, vector, numCandidates);
-      var results = this.searcher.search(query, numCandidates);
+      var query = new KnnFloatVectorQuery(VECTOR_FIELD, vector, queryParams.numCandidates);
+      var results = this.searcher.search(query, queryParams.numCandidates);
       var ids = new ArrayList<Integer>(k);
 
       for (var result : results.scoreDocs) {
@@ -274,7 +252,10 @@ public final class LuceneHnswIndex {
           };
       return String.format(
           "lucene_hnsw-%s_maxConn:%s-beamWidth:%s_numCandidates:%s",
-          providerDescription, maxConn, beamWidth, numCandidates);
+          providerDescription,
+          buildParams.maxConn,
+          buildParams.beamWidth,
+          queryParams.numCandidates);
     }
 
     @Override

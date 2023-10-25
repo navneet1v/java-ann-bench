@@ -3,6 +3,8 @@ package com.github.kevindrosendahl.javaannbench.index;
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
+import com.github.kevindrosendahl.javaannbench.util.Records;
+import com.google.common.base.Preconditions;
 import io.github.jbellis.jvector.disk.OnDiskGraphIndex;
 import io.github.jbellis.jvector.graph.GraphIndexBuilder;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
@@ -14,37 +16,33 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
+import oshi.SystemInfo;
 
 public class JvectorIndex {
+
+  public record BuildParameters(int M, int beamWidth, float neighborOverflow, float alpha) {}
+
   public static final class Builder implements Index.Builder {
 
     private final Path indexPath;
     private final RandomAccessVectorValues<float[]> vectors;
     private final GraphIndexBuilder<float[]> indexBuilder;
-    private final int M;
-    private final int beamWidth;
-    private final float neighborOverflow;
-    private final float alpha;
+    private final BuildParameters buildParams;
     private final int numThreads;
 
     private Builder(
         Path indexPath,
         RandomAccessVectorValues<float[]> vectors,
         GraphIndexBuilder<float[]> indexBuilder,
-        int M,
-        int beamWidth,
-        float neighborOverflow,
-        float alpha,
+        BuildParameters buildParams,
         int numThreads) {
       this.indexPath = indexPath;
       this.vectors = vectors;
       this.indexBuilder = indexBuilder;
-      this.M = M;
-      this.beamWidth = beamWidth;
-      this.neighborOverflow = neighborOverflow;
-      this.alpha = alpha;
+      this.buildParams = buildParams;
       this.numThreads = numThreads;
     }
 
@@ -52,11 +50,19 @@ public class JvectorIndex {
         Path indexesPath,
         RandomAccessVectorValues<float[]> vectors,
         SimilarityFunction similarityFunction,
+        Parameters parameters,
         int M,
         int beamWidth,
         float neighborOverflow,
-        float alpha,
-        int numThreads) {
+        float alpha) {
+      Preconditions.checkArgument(
+          parameters.type().equals("vamana"),
+          "unexpected jvector index type: %s",
+          parameters.type());
+
+      var buildParams =
+          Records.fromMap(parameters.buildParameters(), BuildParameters.class, "build parameters");
+
       var vectorSimilarityFunction =
           switch (similarityFunction) {
             case COSINE -> VectorSimilarityFunction.COSINE;
@@ -74,9 +80,14 @@ public class JvectorIndex {
               neighborOverflow,
               alpha);
 
-      var path = indexesPath.resolve(buildDescription(M, beamWidth, neighborOverflow, alpha));
-      return new JvectorIndex.Builder(
-          path, vectors, indexBuilder, M, beamWidth, neighborOverflow, alpha, numThreads);
+      var numThreads =
+          Optional.ofNullable(System.getenv("JVECTOR_NUM_THREADS"))
+              .map(Integer::parseInt)
+              .orElseGet(
+                  () -> new SystemInfo().getHardware().getProcessor().getPhysicalProcessorCount());
+
+      var path = indexesPath.resolve(buildDescription(buildParams));
+      return new JvectorIndex.Builder(path, vectors, indexBuilder, buildParams, numThreads);
     }
 
     @Override
@@ -111,7 +122,7 @@ public class JvectorIndex {
 
     @Override
     public String description() {
-      return buildDescription(this.M, this.beamWidth, this.neighborOverflow, this.alpha);
+      return buildDescription(this.buildParams);
     }
 
     @Override
@@ -122,11 +133,10 @@ public class JvectorIndex {
     @Override
     public void close() throws Exception {}
 
-    private static String buildDescription(
-        int M, int beamWidth, float neighborOverflow, float alpha) {
+    private static String buildDescription(BuildParameters buildParams) {
       return String.format(
           "jvector_vamana_M:%s-beamWidth:%s-neighborOverflow:%s-alpha:%s",
-          M, beamWidth, neighborOverflow, alpha);
+          buildParams.M, buildParams.beamWidth, buildParams.neighborOverflow, buildParams.alpha);
     }
   }
 }
