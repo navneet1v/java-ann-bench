@@ -14,8 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.codecs.KnnVectorsFormat;
-import org.apache.lucene.codecs.lucene95.Lucene95Codec;
-import org.apache.lucene.codecs.lucene95.Lucene95HnswVectorsFormat;
+import org.apache.lucene.codecs.lucene99.Lucene99Codec;
+import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.apache.lucene.codecs.vectorsandbox.VectorSandboxHnswVectorsFormat;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.KnnFloatVectorField;
@@ -30,16 +30,22 @@ import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 
-public final class LuceneHnswIndex {
+public final class LuceneIndex {
 
-  public enum HnswProvider {
-    LUCENE_95,
-    SANDBOX;
+  public enum Provider {
+    HNSW("hnsw"),
+    SANDBOX_HNSW("sandbox-hnsw");
 
-    static HnswProvider parse(String description) {
+    final String description;
+
+    Provider(String description) {
+      this.description = description;
+    }
+
+    static Provider parse(String description) {
       return switch (description) {
-        case "hnsw-lucene95" -> HnswProvider.LUCENE_95;
-        case "hnsw-sandbox" -> HnswProvider.SANDBOX;
+        case "hnsw" -> Provider.HNSW;
+        case "sandbox-hnsw" -> Provider.SANDBOX_HNSW;
         default -> throw new RuntimeException("unexpected lucene index provider " + description);
       };
     }
@@ -57,7 +63,7 @@ public final class LuceneHnswIndex {
     private final RandomAccessVectorValues<float[]> vectors;
     private final MMapDirectory directory;
     private final IndexWriter writer;
-    private final HnswProvider provider;
+    private final Provider provider;
     private final BuildParameters buildParams;
     private final VectorSimilarityFunction similarityFunction;
 
@@ -65,7 +71,7 @@ public final class LuceneHnswIndex {
         RandomAccessVectorValues<float[]> vectors,
         MMapDirectory directory,
         IndexWriter writer,
-        HnswProvider provider,
+        Provider provider,
         BuildParameters buildParams,
         VectorSimilarityFunction similarityFunction) {
       this.vectors = vectors;
@@ -82,7 +88,7 @@ public final class LuceneHnswIndex {
         SimilarityFunction similarityFunction,
         Parameters parameters)
         throws IOException {
-      var provider = HnswProvider.parse(parameters.type());
+      var provider = Provider.parse(parameters.type());
 
       var buildParams =
           Records.fromMap(parameters.buildParameters(), BuildParameters.class, "build parameters");
@@ -102,13 +108,14 @@ public final class LuceneHnswIndex {
 
       var codec =
           switch (provider) {
-            case LUCENE_95 -> new Lucene95Codec() {
+            case HNSW -> new Lucene99Codec() {
               @Override
               public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-                return new Lucene95HnswVectorsFormat(buildParams.maxConn, buildParams.beamWidth);
+                return new Lucene99HnswVectorsFormat(
+                    buildParams.maxConn, buildParams.beamWidth, null);
               }
             };
-            case SANDBOX -> new Lucene95Codec() {
+            case SANDBOX_HNSW -> new Lucene99Codec() {
               @Override
               public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
                 return new VectorSandboxHnswVectorsFormat(
@@ -120,8 +127,7 @@ public final class LuceneHnswIndex {
           new IndexWriter(
               directory, new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(2 * 1024));
 
-      return new LuceneHnswIndex.Builder(
-          vectors, directory, writer, provider, buildParams, similarity);
+      return new LuceneIndex.Builder(vectors, directory, writer, provider, buildParams, similarity);
     }
 
     @Override
@@ -170,15 +176,10 @@ public final class LuceneHnswIndex {
       this.directory.close();
     }
 
-    private static String buildDescription(HnswProvider provider, BuildParameters params) {
-      var providerDescription =
-          switch (provider) {
-            case LUCENE_95 -> "lucene95";
-            case SANDBOX -> "sandbox";
-          };
+    private static String buildDescription(Provider provider, BuildParameters params) {
       return String.format(
-          "lucene_hnsw-%s_maxConn:%s-beamWidth:%s",
-          providerDescription, params.maxConn, params.beamWidth);
+          "lucene_%s_maxConn:%s-beamWidth:%s",
+          provider.description, params.maxConn, params.beamWidth);
     }
   }
 
@@ -187,7 +188,7 @@ public final class LuceneHnswIndex {
     private final Directory directory;
     private final IndexReader reader;
     private final IndexSearcher searcher;
-    private final HnswProvider provider;
+    private final Provider provider;
     private final BuildParameters buildParams;
     private final QueryParameters queryParams;
 
@@ -195,7 +196,7 @@ public final class LuceneHnswIndex {
         Directory directory,
         IndexReader reader,
         IndexSearcher searcher,
-        HnswProvider provider,
+        Provider provider,
         BuildParameters buildParams,
         QueryParameters queryParams) {
       this.directory = directory;
@@ -207,21 +208,21 @@ public final class LuceneHnswIndex {
     }
 
     public static Index.Querier create(Path indexesPath, Parameters parameters) throws IOException {
-      var provider = HnswProvider.parse(parameters.type());
+      var provider = Provider.parse(parameters.type());
 
       var buildParams =
           Records.fromMap(parameters.buildParameters(), BuildParameters.class, "build parameters");
       var queryParams =
           Records.fromMap(parameters.queryParameters(), QueryParameters.class, "query parameters");
 
-      var buildDescription = LuceneHnswIndex.Builder.buildDescription(provider, buildParams);
+      var buildDescription = LuceneIndex.Builder.buildDescription(provider, buildParams);
       var path = indexesPath.resolve(buildDescription);
       Preconditions.checkArgument(path.toFile().exists(), "index does not exist at {}", path);
 
       var directory = new MMapDirectory(indexesPath.resolve(buildDescription));
       var reader = DirectoryReader.open(directory);
       var searcher = new IndexSearcher(reader);
-      return new LuceneHnswIndex.Querier(
+      return new LuceneIndex.Querier(
           directory, reader, searcher, provider, buildParams, queryParams);
     }
 
@@ -248,14 +249,9 @@ public final class LuceneHnswIndex {
 
     @Override
     public String description() {
-      var providerDescription =
-          switch (provider) {
-            case LUCENE_95 -> "lucene95";
-            case SANDBOX -> "sandbox";
-          };
       return String.format(
-          "lucene_hnsw-%s_maxConn:%s-beamWidth:%s_numCandidates:%s",
-          providerDescription,
+          "lucene_%s_maxConn:%s-beamWidth:%s_numCandidates:%s",
+          provider.description,
           buildParams.maxConn,
           buildParams.beamWidth,
           queryParams.numCandidates);

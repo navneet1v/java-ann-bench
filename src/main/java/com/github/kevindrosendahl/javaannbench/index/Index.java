@@ -28,7 +28,7 @@ public interface Index extends AutoCloseable {
       Files.createDirectories(datasetPath);
 
       return switch (parameters.provider) {
-        case "lucene" -> LuceneHnswIndex.Builder.create(
+        case "lucene" -> LuceneIndex.Builder.create(
             datasetPath, dataset.train(), dataset.similarityFunction(), parameters);
         case "jvector" -> JVectorIndex.Builder.create(
             datasetPath, dataset.train(), dataset.similarityFunction(), parameters);
@@ -77,7 +77,7 @@ public interface Index extends AutoCloseable {
       var datasetPath = indexesPath.resolve(dataset.description());
 
       return switch (parameters.provider) {
-        case "lucene" -> LuceneHnswIndex.Querier.create(
+        case "lucene" -> LuceneIndex.Querier.create(
             indexesPath.resolve(dataset.description()), parameters);
         case "jvector" -> JVectorIndex.Querier.create(
             datasetPath, dataset.similarityFunction(), parameters);
