@@ -2,6 +2,7 @@ package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
+import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import io.github.jbellis.jvector.disk.OnDiskGraphIndex;
 import io.github.jbellis.jvector.graph.GraphIndexBuilder;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
@@ -114,8 +115,8 @@ public class JvectorIndex {
     }
 
     @Override
-    public long size() throws IOException {
-      return 0;
+    public Bytes size() throws IOException {
+      return Bytes.ofBytes(0);
     }
 
     @Override

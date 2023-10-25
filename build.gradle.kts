@@ -52,6 +52,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("--enable-preview")
+}
+
 tasks.test {
     useJUnitPlatform()
 }

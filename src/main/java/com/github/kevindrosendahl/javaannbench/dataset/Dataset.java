@@ -1,8 +1,8 @@
 package com.github.kevindrosendahl.javaannbench.dataset;
 
-import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets.Datasets;
+import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets.AnnBenchmarkDataset;
+import com.github.kevindrosendahl.javaannbench.util.MMapRandomAccessVectorValues;
 import com.google.common.base.Preconditions;
-import io.github.jbellis.jvector.graph.ListRandomAccessVectorValues;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -14,7 +14,7 @@ public record Dataset(
     SimilarityFunction similarityFunction,
     int dimensions,
     RandomAccessVectorValues<float[]> train,
-    List<float[]> test,
+    RandomAccessVectorValues<float[]> test,
     List<List<Integer>> groundTruth) {
 
   public static Dataset fromDescription(Path datasetPath, String description)
@@ -26,7 +26,7 @@ public record Dataset(
 
     var name = parts[1];
     var annBenchmarksDataset =
-        Arrays.stream(Datasets.values())
+        Arrays.stream(AnnBenchmarkDataset.values())
             .filter(annDataset -> annDataset.description.equals(name))
             .findFirst();
     Preconditions.checkArgument(
@@ -36,27 +36,26 @@ public record Dataset(
         annBenchmarksDataset.get(), datasetPath.resolve("ann-benchmarks"));
   }
 
-  static Dataset fromCsv(
-      String description, int dimensions, SimilarityFunction similarityFunction, Path path)
+  static Dataset load(
+      String description,
+      int numTrainVectors,
+      int numTestVectors,
+      int dimensions,
+      SimilarityFunction similarityFunction,
+      Path path)
       throws IOException {
-    var trainPath = path.resolve("train.csv");
+    var trainPath = path.resolve("train.fvec");
     Preconditions.checkArgument(trainPath.toFile().exists());
-    var train = CsvVectorLoader.loadVectors("train", trainPath, dimensions);
+    var train = new MMapRandomAccessVectorValues(trainPath, numTrainVectors, dimensions);
 
-    var testPath = path.resolve("test.csv");
+    var testPath = path.resolve("test.fvec");
     Preconditions.checkArgument(testPath.toFile().exists());
-    var test = CsvVectorLoader.loadVectors("test", testPath, dimensions);
+    var test = new MMapRandomAccessVectorValues(testPath, numTestVectors, dimensions);
 
     var neighborsPath = path.resolve("neighbors.csv");
     Preconditions.checkArgument(neighborsPath.toFile().exists());
     var neighbors = CsvVectorLoader.loadGroundTruth(neighborsPath);
 
-    return new Dataset(
-        description,
-        similarityFunction,
-        dimensions,
-        new ListRandomAccessVectorValues(train, train.size()),
-        test,
-        neighbors);
+    return new Dataset(description, similarityFunction, dimensions, train, test, neighbors);
   }
 }

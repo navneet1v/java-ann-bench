@@ -46,24 +46,20 @@ public class CsvVectorLoader {
 
   public static List<List<Integer>> loadGroundTruth(Path path) throws IOException {
     var rows = Files.lines(path).count();
+    var groundTruths = new ArrayList<List<Integer>>();
 
-    try (var progress = ProgressBar.create("loading ground truth vectors", (int) rows)) {
-      var groundTruths = new ArrayList<List<Integer>>();
-
-      try (var reader = Files.newBufferedReader(path);
-          var parser = new CSVParser(reader, CSVFormat.DEFAULT)) {
-        for (var record : parser) {
-          var groundTruth = new ArrayList<Integer>(record.size());
-          for (var value : record) {
-            groundTruth.add(Integer.parseInt(value));
-          }
-
-          groundTruths.add(groundTruth);
-          progress.inc();
+    try (var reader = Files.newBufferedReader(path);
+        var parser = new CSVParser(reader, CSVFormat.DEFAULT)) {
+      for (var record : parser) {
+        var groundTruth = new ArrayList<Integer>(record.size());
+        for (var value : record) {
+          groundTruth.add(Integer.parseInt(value));
         }
 
-        return groundTruths;
+        groundTruths.add(groundTruth);
       }
+
+      return groundTruths;
     }
   }
 }

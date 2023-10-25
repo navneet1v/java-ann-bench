@@ -1,6 +1,7 @@
 package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
+import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,7 +19,7 @@ public interface Index extends AutoCloseable {
   interface Builder extends Index {
     BuildSummary build() throws IOException;
 
-    long size() throws IOException;
+    Bytes size() throws IOException;
 
     static Builder fromDescription(Dataset dataset, Path indexesPath, String description)
         throws IOException {

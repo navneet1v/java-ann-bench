@@ -48,6 +48,7 @@ public class BenchRunner implements Runnable {
       throwableRun();
     } catch (Exception e) {
       LOGGER.error("caught exception during execution", e);
+      throw new RuntimeException(e);
     }
   }
 

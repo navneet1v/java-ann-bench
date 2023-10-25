@@ -27,31 +27,42 @@ public class AnnBenchmarkDatasets {
   private static final String KEY = "ann-datasets.tar.gz";
   private static final String EXTRACTED = "ann-datasets";
 
-  public enum Datasets {
-    GIST_960(960, SimilarityFunction.EUCLIDEAN, "gist-960-euclidean"),
-    GLOVE_100(100, SimilarityFunction.COSINE, "glove-100-angular"),
-    GLOVE_25(25, SimilarityFunction.COSINE, "glove-25-angular"),
-    MNIST_784(784, SimilarityFunction.EUCLIDEAN, "mnist-784-euclidean"),
-    NYTIMES_256(256, SimilarityFunction.COSINE, "nytimes-256-angular"),
-    SIFT_128(128, SimilarityFunction.COSINE, "sift-128-angular");
+  public enum AnnBenchmarkDataset {
+    GIST_960(1000000, 1000, 960, SimilarityFunction.EUCLIDEAN, "gist-960-euclidean"),
+    GLOVE_100(1183514, 10000, 100, SimilarityFunction.COSINE, "glove-100-angular"),
+    GLOVE_25(1183514, 10000, 25, SimilarityFunction.COSINE, "glove-25-angular"),
+    MNIST_784(60000, 10000, 784, SimilarityFunction.EUCLIDEAN, "mnist-784-euclidean"),
+    NYTIMES_256(290000, 10000, 256, SimilarityFunction.COSINE, "nytimes-256-angular"),
+    SIFT_128(1000000, 10000, 128, SimilarityFunction.EUCLIDEAN, "sift-128-euclidean");
 
+    public final int numTrainVectors;
+    public final int numTestVectors;
     public final int dimensions;
     public final SimilarityFunction similarityFunction;
     public final String description;
 
-    Datasets(int dimensions, SimilarityFunction similarityFunction, String description) {
+    AnnBenchmarkDataset(
+        int numTrainVectors,
+        int numTestVectors,
+        int dimensions,
+        SimilarityFunction similarityFunction,
+        String description) {
+      this.numTrainVectors = numTrainVectors;
+      this.numTestVectors = numTestVectors;
       this.dimensions = dimensions;
       this.similarityFunction = similarityFunction;
       this.description = description;
     }
   }
 
-  public static Dataset load(Datasets dataset, Path directory)
+  public static Dataset load(AnnBenchmarkDataset dataset, Path directory)
       throws IOException, InterruptedException {
     ensure(directory);
     var datasetDir = directory.resolve(EXTRACTED).resolve(Path.of(dataset.description));
-    return Dataset.fromCsv(
+    return Dataset.load(
         "ann-benchmarks_" + dataset.description,
+        dataset.numTrainVectors,
+        dataset.numTestVectors,
         dataset.dimensions,
         dataset.similarityFunction,
         datasetDir);

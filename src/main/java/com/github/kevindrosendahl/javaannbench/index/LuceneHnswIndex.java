@@ -2,6 +2,7 @@ package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
+import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.google.common.base.Preconditions;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.IOException;
@@ -157,8 +158,8 @@ public final class LuceneHnswIndex {
       return new BuildSummary(build, Duration.between(commitStart, commitEnd));
     }
 
-    public long size() {
-      return FileUtils.sizeOfDirectory(this.directory.getDirectory().toFile());
+    public Bytes size() {
+      return Bytes.ofBytes(FileUtils.sizeOfDirectory(this.directory.getDirectory().toFile()));
     }
 
     @Override
@@ -179,7 +180,7 @@ public final class LuceneHnswIndex {
             case SANDBOX -> "sandbox";
           };
       return String.format(
-          "lucene_hnsw-%s_M:%s-efConstruction:%s", providerDescription, maxConn, beamWidth);
+          "lucene_hnsw-%s_maxConn:%s-beamWidth:%s", providerDescription, maxConn, beamWidth);
     }
   }
 
@@ -229,8 +230,9 @@ public final class LuceneHnswIndex {
           queryParameters.size() == 1,
           "unexpected number of query parameters. expected 1, got %s",
           queryParameters.size());
-      Preconditions.checkArgument(queryParameters.containsKey("efSearch"), "must specify efSearch");
-      var numCandidates = Integer.parseInt(queryParameters.get("efSearch"));
+      Preconditions.checkArgument(
+          queryParameters.containsKey("numCandidates"), "must specify numCandidates");
+      var numCandidates = Integer.parseInt(queryParameters.get("numCandidates"));
 
       var buildDescription = LuceneHnswIndex.Builder.buildDescription(provider, maxConn, beamWidth);
       var path = indexesPath.resolve(buildDescription);
@@ -271,7 +273,7 @@ public final class LuceneHnswIndex {
             case SANDBOX -> "sandbox";
           };
       return String.format(
-          "lucene_hnsw-%s_M:%s-efConstruction:%s_efSearch:%s",
+          "lucene_hnsw-%s_maxConn:%s-beamWidth:%s_numCandidates:%s",
           providerDescription, maxConn, beamWidth, numCandidates);
     }
 
