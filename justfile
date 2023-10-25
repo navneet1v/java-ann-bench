@@ -1,4 +1,8 @@
-init: update-jvector update-lucene
+init:
+  git submodule init
+  git submodule update
+  @just update-jvector
+  @just update-lucene
 
 update-jvector:
   git -C submodules/jvector pull origin ann-sandbox
