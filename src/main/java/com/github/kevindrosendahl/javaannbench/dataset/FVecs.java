@@ -1,5 +1,6 @@
 package com.github.kevindrosendahl.javaannbench.dataset;
 
+import com.github.kevindrosendahl.javaannbench.util.MMapRandomAccessVectorValues;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -8,9 +9,14 @@ import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.List;
 
-public class FlatVectorWriter {
+public class FVecs {
 
-  public static void writeVectors(Path path, RandomAccessVectorValues<float[]> vectors)
+  public static MMapRandomAccessVectorValues mmap(Path path, int size, int dimensions)
+      throws IOException {
+    return new MMapRandomAccessVectorValues(path, size, dimensions);
+  }
+
+  public static void write(Path path, RandomAccessVectorValues<float[]> vectors)
       throws IOException {
     try (var fos = new FileOutputStream(path.toFile());
         var channel = fos.getChannel()) {
@@ -47,7 +53,7 @@ public class FlatVectorWriter {
     }
   }
 
-  public static void writeVectors(Path path, List<float[]> vectors) throws IOException {
+  public static void write(Path path, List<float[]> vectors) throws IOException {
     try (var fos = new FileOutputStream(path.toFile());
         var channel = fos.getChannel()) {
 

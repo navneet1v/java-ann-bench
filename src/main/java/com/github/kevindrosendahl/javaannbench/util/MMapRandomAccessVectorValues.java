@@ -14,13 +14,12 @@ public class MMapRandomAccessVectorValues implements RandomAccessVectorValues<fl
   private final int size;
   private final int dimension;
 
-  public MMapRandomAccessVectorValues(Path path, int numVectors, int dimension) throws IOException {
+  public MMapRandomAccessVectorValues(Path path, int size, int dimension) throws IOException {
     try (var channel = FileChannel.open(path)) {
       this.segment =
-          channel.map(
-              MapMode.READ_ONLY, 0, (long) numVectors * dimension * Float.BYTES, Arena.global());
+          channel.map(MapMode.READ_ONLY, 0, (long) size * dimension * Float.BYTES, Arena.global());
     }
-    this.size = numVectors;
+    this.size = size;
     this.dimension = dimension;
   }
 

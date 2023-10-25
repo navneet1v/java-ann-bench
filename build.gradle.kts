@@ -18,7 +18,8 @@ application {
             "-XX:+UnlockExperimentalVMOptions",
             "-XX:+EnableVectorSupport",
             "--add-modules",
-            "jdk.incubator.vector"
+            "jdk.incubator.vector",
+            "--enable-native-access=ALL-UNNAMED",
     )
 }
 

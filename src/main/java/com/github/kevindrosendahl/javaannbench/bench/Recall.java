@@ -67,6 +67,13 @@ public class Recall {
           var duration = Duration.between(start, end);
           executionDurations.addValue(duration.toNanos());
 
+          Preconditions.checkArgument(
+              results.size() <= k,
+              "query %s returned %s results, expected less than k=%s",
+              j,
+              results.size(),
+              k);
+
           var groundTruth = groundTruths.get(j);
           var truePositives = groundTruth.stream().limit(k).filter(results::contains).count();
           var recall = (double) truePositives / k;

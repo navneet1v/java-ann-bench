@@ -56,7 +56,7 @@ public class BenchRunner implements Runnable {
 
   private void throwableRun() throws Exception {
     Preconditions.checkArgument(!(this.build && this.query), "cannot build and query");
-    Preconditions.checkArgument(this.build || this.query, "cannot build and query");
+    Preconditions.checkArgument(this.build || this.query, "must build or query");
 
     var workingDirectory = Path.of(System.getProperty("user.dir"));
     var datasetDirectory = workingDirectory.resolve("datasets");

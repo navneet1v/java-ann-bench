@@ -45,15 +45,15 @@ public record Dataset(
       throws IOException {
     var trainPath = path.resolve("train.fvecs");
     Preconditions.checkArgument(trainPath.toFile().exists());
-    var train = new MMapRandomAccessVectorValues(trainPath, numTrainVectors, dimensions);
+    var train = FVecs.mmap(trainPath, numTrainVectors, dimensions);
 
     var testPath = path.resolve("test.fvecs");
     Preconditions.checkArgument(testPath.toFile().exists());
-    var test = new MMapRandomAccessVectorValues(testPath, numTestVectors, dimensions);
+    var test = FVecs.mmap(testPath, numTestVectors, dimensions);
 
-    var neighborsPath = path.resolve("neighbors.csv");
+    var neighborsPath = path.resolve("neighbors.ivecs");
     Preconditions.checkArgument(neighborsPath.toFile().exists());
-    var neighbors = CsvVectorLoader.loadGroundTruth(neighborsPath);
+    var neighbors = IVecs.load(neighborsPath, numTestVectors, 100);
 
     return new Dataset(description, similarityFunction, dimensions, train, test, neighbors);
   }
