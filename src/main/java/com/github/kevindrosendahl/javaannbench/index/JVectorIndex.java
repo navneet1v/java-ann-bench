@@ -34,6 +34,8 @@ import oshi.SystemInfo;
 
 public class JVectorIndex {
 
+  private static final String INDEX_FILE = "index.bin";
+
   public record BuildParameters(int M, int beamWidth, float neighborOverflow, float alpha) {}
 
   public record QueryParameters(int numCandidates) {}
@@ -63,7 +65,8 @@ public class JVectorIndex {
         Path indexesPath,
         RandomAccessVectorValues<float[]> vectors,
         SimilarityFunction similarityFunction,
-        Parameters parameters) {
+        Parameters parameters)
+        throws IOException {
       Preconditions.checkArgument(
           parameters.type().equals("vamana"),
           "unexpected jvector index type: %s",
@@ -96,6 +99,8 @@ public class JVectorIndex {
                   () -> new SystemInfo().getHardware().getProcessor().getPhysicalProcessorCount());
 
       var path = indexesPath.resolve(buildDescription(buildParams));
+      Files.createDirectories(path);
+
       return new JVectorIndex.Builder(path, vectors, indexBuilder, buildParams, numThreads);
     }
 
@@ -106,20 +111,24 @@ public class JVectorIndex {
 
       var buildStart = Instant.now();
       try (var progress = ProgressBar.create("building", size)) {
-        IntStream.range(0, size)
-            .parallel()
-            .forEach(
-                i -> {
-                  this.indexBuilder.addGraphNode(i, this.vectors);
-                  progress.inc();
-                });
+        pool.submit(
+            () -> {
+              IntStream.range(0, size)
+                  .parallel()
+                  .forEach(
+                      i -> {
+                        this.indexBuilder.addGraphNode(i, this.vectors);
+                        progress.inc();
+                      });
+            });
       }
 
       this.indexBuilder.cleanup();
       var buildEnd = Instant.now();
 
       var commitStart = Instant.now();
-      try (var output = new DataOutputStream(new FileOutputStream(this.indexPath.toFile()))) {
+      try (var output =
+          new DataOutputStream(new FileOutputStream(this.indexPath.resolve(INDEX_FILE).toFile()))) {
         var graph = this.indexBuilder.getGraph();
         OnDiskGraphIndex.write(graph, vectors, output);
       }
@@ -185,7 +194,7 @@ public class JVectorIndex {
           Records.fromMap(parameters.queryParameters(), QueryParameters.class, "query parameters");
 
       var buildDescription = JVectorIndex.Builder.buildDescription(buildParams);
-      var path = indexesPath.resolve(buildDescription);
+      var path = indexesPath.resolve(buildDescription).resolve(INDEX_FILE);
       Preconditions.checkArgument(path.toFile().exists(), "index does not exist at {}", path);
 
       var vectorSimilarityFunction =
