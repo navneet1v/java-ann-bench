@@ -36,7 +36,9 @@ public interface Index extends AutoCloseable {
       };
     }
 
-    record BuildSummary(Duration build, Duration commit) {}
+    record BuildSummary(List<BuildPhase> phases) {}
+
+    record BuildPhase(String description, Duration duration) {}
 
     record Parameters(String provider, String type, Map<String, String> buildParameters) {
 

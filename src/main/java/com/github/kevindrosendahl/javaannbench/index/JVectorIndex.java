@@ -118,16 +118,17 @@ public class JVectorIndex {
       this.indexBuilder.cleanup();
       var buildEnd = Instant.now();
 
-      var graph = this.indexBuilder.getGraph();
-
       var commitStart = Instant.now();
       try (var output = new DataOutputStream(new FileOutputStream(this.indexPath.toFile()))) {
+        var graph = this.indexBuilder.getGraph();
         OnDiskGraphIndex.write(graph, vectors, output);
       }
       var commitEnd = Instant.now();
 
       return new BuildSummary(
-          Duration.between(buildStart, buildEnd), Duration.between(commitStart, commitEnd));
+          List.of(
+              new BuildPhase("build", Duration.between(buildStart, buildEnd)),
+              new BuildPhase("commit", Duration.between(commitStart, commitEnd))));
     }
 
     @Override

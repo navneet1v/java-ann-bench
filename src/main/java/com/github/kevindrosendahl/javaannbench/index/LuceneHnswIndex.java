@@ -129,10 +129,10 @@ public final class LuceneHnswIndex {
       var size = this.vectors.size();
       Duration build;
 
+      var buildStart = Instant.now();
       try (var progress = ProgressBar.create("building", size)) {
         var doc = new Document();
 
-        var buildStart = Instant.now();
         for (int i = 0; i < this.vectors.size(); i++) {
           doc.clear();
           doc.add(new StoredField(ID_FIELD, i));
@@ -142,15 +142,17 @@ public final class LuceneHnswIndex {
           this.writer.addDocument(doc);
           progress.inc();
         }
-        var buildEnd = Instant.now();
-        build = Duration.between(buildStart, buildEnd);
       }
+      var buildEnd = Instant.now();
 
       var commitStart = Instant.now();
       this.writer.commit();
       var commitEnd = Instant.now();
 
-      return new BuildSummary(build, Duration.between(commitStart, commitEnd));
+      return new BuildSummary(
+          List.of(
+              new BuildPhase("build", Duration.between(buildStart, buildEnd)),
+              new BuildPhase("commit", Duration.between(commitStart, commitEnd))));
     }
 
     public Bytes size() {

@@ -3,6 +3,7 @@ package com.github.kevindrosendahl.javaannbench;
 import com.github.kevindrosendahl.javaannbench.bench.Recall;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
 import com.github.kevindrosendahl.javaannbench.index.Index;
+import com.github.kevindrosendahl.javaannbench.index.Index.Builder.BuildPhase;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -74,10 +75,14 @@ public class BenchRunner implements Runnable {
   private void build(Dataset dataset, Path indexesPath) throws Exception {
     try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
       var summary = index.build();
-      LOGGER.info("completed building index for {}:", index.description());
-      LOGGER.info("\tbuild phase: {}", summary.build());
-      LOGGER.info("\tcommit phase: {}", summary.commit());
-      LOGGER.info("\ttotal time: {}", summary.build().plus(summary.commit()));
+      var totalTime =
+          summary.phases().stream().map(BuildPhase::duration).reduce(Duration.ZERO, Duration::plus);
+
+      LOGGER.info("completed building index for {}", index.description());
+      summary
+          .phases()
+          .forEach(phase -> LOGGER.info("\t{} phase: {}", phase.description(), phase.duration()));
+      LOGGER.info("\ttotal time: {}", totalTime);
       LOGGER.info("\tsize: {}", index.size());
     }
   }
