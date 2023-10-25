@@ -3,7 +3,6 @@ package com.github.kevindrosendahl.javaannbench.dataset;
 import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets.AnnBenchmarkDataset;
 import com.github.kevindrosendahl.javaannbench.util.MMapRandomAccessVectorValues;
 import com.google.common.base.Preconditions;
-import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -13,8 +12,8 @@ public record Dataset(
     String description,
     SimilarityFunction similarityFunction,
     int dimensions,
-    RandomAccessVectorValues<float[]> train,
-    RandomAccessVectorValues<float[]> test,
+    MMapRandomAccessVectorValues train,
+    MMapRandomAccessVectorValues test,
     List<List<Integer>> groundTruth) {
 
   public static Dataset fromDescription(Path datasetPath, String description)

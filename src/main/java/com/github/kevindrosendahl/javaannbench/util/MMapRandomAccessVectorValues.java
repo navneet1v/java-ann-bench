@@ -58,4 +58,8 @@ public class MMapRandomAccessVectorValues implements RandomAccessVectorValues<fl
   public RandomAccessVectorValues<float[]> copy() {
     return this;
   }
+
+  public void advise(Madvise.Advice advice) {
+    Madvise.advise(this.segment, this.segment.byteSize(), advice);
+  }
 }

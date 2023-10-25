@@ -4,6 +4,7 @@ import com.github.kevindrosendahl.javaannbench.bench.Recall;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
 import com.github.kevindrosendahl.javaannbench.index.Index;
 import com.github.kevindrosendahl.javaannbench.index.Index.Builder.BuildPhase;
+import com.github.kevindrosendahl.javaannbench.util.Madvise.Advice;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -73,6 +74,8 @@ public class BenchRunner implements Runnable {
   }
 
   private void build(Dataset dataset, Path indexesPath) throws Exception {
+    dataset.train().advise(Advice.WILLNEED);
+
     try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
       var summary = index.build();
       var totalTime =
@@ -89,6 +92,8 @@ public class BenchRunner implements Runnable {
 
   private void query(Dataset dataset, Path indexesPath) throws Exception {
     Preconditions.checkArgument(this.k != 0, "must supply k if running query");
+
+    dataset.test().advise(Advice.WILLNEED);
 
     try (var index = Index.Querier.fromDescription(dataset, indexesPath, this.index)) {
       var result = Recall.test(index, dataset.test(), this.k, dataset.groundTruth());
