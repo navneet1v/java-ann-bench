@@ -24,7 +24,7 @@ public interface Index extends AutoCloseable {
     static Builder fromDescription(Dataset dataset, Path indexesPath, String description)
         throws IOException {
       var parameters = Builder.Parameters.parse(description);
-      var datasetPath = indexesPath.resolve(dataset.description());
+      var datasetPath = indexesPath.resolve(dataset.name());
       Files.createDirectories(datasetPath);
 
       return switch (parameters.provider) {
@@ -74,11 +74,11 @@ public interface Index extends AutoCloseable {
     static Querier fromDescription(Dataset dataset, Path indexesPath, String description)
         throws IOException {
       var parameters = Parameters.parse(description);
-      var datasetPath = indexesPath.resolve(dataset.description());
+      var datasetPath = indexesPath.resolve(dataset.name());
 
       return switch (parameters.provider) {
         case "lucene" -> LuceneIndex.Querier.create(
-            indexesPath.resolve(dataset.description()), parameters);
+            indexesPath.resolve(dataset.name()), parameters);
         case "jvector" -> JVectorIndex.Querier.create(
             datasetPath, dataset.similarityFunction(), parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.provider);

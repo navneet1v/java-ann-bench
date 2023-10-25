@@ -2,6 +2,7 @@ package com.github.kevindrosendahl.javaannbench;
 
 import com.github.kevindrosendahl.javaannbench.bench.Recall;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
+import com.github.kevindrosendahl.javaannbench.dataset.Datasets;
 import com.github.kevindrosendahl.javaannbench.index.Index;
 import com.github.kevindrosendahl.javaannbench.index.Index.Builder.BuildPhase;
 import com.github.kevindrosendahl.javaannbench.util.Madvise.Advice;
@@ -112,7 +113,7 @@ public class BenchRunner implements Runnable {
     }
   }
 
-  private Dataset dataset(Path datasetPath) throws IOException, InterruptedException {
-    return Dataset.fromDescription(datasetPath, this.dataset);
+  private Dataset dataset(Path datasetsPath) throws IOException, InterruptedException {
+    return Datasets.load(datasetsPath, this.dataset);
   }
 }

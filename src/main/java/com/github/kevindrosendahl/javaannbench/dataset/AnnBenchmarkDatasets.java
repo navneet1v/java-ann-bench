@@ -2,6 +2,7 @@ package com.github.kevindrosendahl.javaannbench.dataset;
 
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
+import com.github.kevindrosendahl.javaannbench.util.Tarball;
 import com.github.kevindrosendahl.javaannbench.util.Yaml;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
@@ -59,13 +60,14 @@ public class AnnBenchmarkDatasets {
       throws IOException, InterruptedException {
     ensure(directory);
     var datasetDir = directory.resolve(EXTRACTED).resolve(Path.of(dataset.description));
-    return Dataset.load(
-        "ann-benchmarks_" + dataset.description,
-        dataset.numTrainVectors,
-        dataset.numTestVectors,
-        dataset.dimensions,
-        dataset.similarityFunction,
-        datasetDir);
+    return null;
+    //    return Dataset.load(
+    //        "ann-benchmarks_" + dataset.description,
+    //        dataset.numTrainVectors,
+    //        dataset.numTestVectors,
+    //        dataset.dimensions,
+    //        dataset.similarityFunction,
+    //        datasetDir);
   }
 
   private static void ensure(Path directory) throws IOException, InterruptedException {
