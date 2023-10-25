@@ -1,9 +1,13 @@
 package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
+import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.google.common.base.Preconditions;
+import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FileUtils;
@@ -44,6 +48,7 @@ public final class LuceneHnswIndex {
 
   public static final class Builder implements Index.Builder {
 
+    private final RandomAccessVectorValues<float[]> vectors;
     private final MMapDirectory directory;
     private final IndexWriter writer;
     private final HnswProvider provider;
@@ -52,12 +57,14 @@ public final class LuceneHnswIndex {
     private final VectorSimilarityFunction similarityFunction;
 
     private Builder(
+        RandomAccessVectorValues<float[]> vectors,
         MMapDirectory directory,
         IndexWriter writer,
         HnswProvider provider,
         int maxConn,
         int beamWidth,
         VectorSimilarityFunction similarityFunction) {
+      this.vectors = vectors;
       this.directory = directory;
       this.writer = writer;
       this.provider = provider;
@@ -67,7 +74,10 @@ public final class LuceneHnswIndex {
     }
 
     public static Index.Builder create(
-        Path indexesPath, SimilarityFunction similarityFunction, Parameters parameters)
+        Path indexesPath,
+        RandomAccessVectorValues<float[]> vectors,
+        SimilarityFunction similarityFunction,
+        Parameters parameters)
         throws IOException {
       var provider = HnswProvider.parse(parameters.type());
 
@@ -91,7 +101,7 @@ public final class LuceneHnswIndex {
 
       var description = buildDescription(provider, maxConn, beamWidth);
       var path = indexesPath.resolve(description);
-      Preconditions.checkArgument(!path.toFile().exists(), "index already exists at {}", path);
+      Preconditions.checkArgument(!path.toFile().exists(), "index already exists at %s", path);
 
       var directory = new MMapDirectory(path);
 
@@ -115,18 +125,36 @@ public final class LuceneHnswIndex {
               directory, new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(2 * 1024));
 
       return new LuceneHnswIndex.Builder(
-          directory, writer, provider, maxConn, beamWidth, similarity);
+          vectors, directory, writer, provider, maxConn, beamWidth, similarity);
     }
 
-    public void add(int id, float[] vector) throws IOException {
-      var doc = new Document();
-      doc.add(new StoredField(ID_FIELD, id));
-      doc.add(new KnnFloatVectorField(VECTOR_FIELD, vector, this.similarityFunction));
-      this.writer.addDocument(doc);
-    }
+    @Override
+    public BuildSummary build() throws IOException {
+      var size = this.vectors.size();
+      Duration build;
 
-    public void commit() throws IOException {
+      try (var progress = ProgressBar.create("building", size)) {
+        var doc = new Document();
+
+        var buildStart = Instant.now();
+        for (int i = 0; i < this.vectors.size(); i++) {
+          doc.clear();
+          doc.add(new StoredField(ID_FIELD, i));
+          doc.add(
+              new KnnFloatVectorField(
+                  VECTOR_FIELD, this.vectors.vectorValue(i), this.similarityFunction));
+          this.writer.addDocument(doc);
+          progress.inc();
+        }
+        var buildEnd = Instant.now();
+        build = Duration.between(buildStart, buildEnd);
+      }
+
+      var commitStart = Instant.now();
       this.writer.commit();
+      var commitEnd = Instant.now();
+
+      return new BuildSummary(build, Duration.between(commitStart, commitEnd));
     }
 
     public long size() {

@@ -2,6 +2,8 @@ package com.github.kevindrosendahl.javaannbench.dataset;
 
 import com.github.kevindrosendahl.javaannbench.dataset.AnnBenchmarkDatasets.Datasets;
 import com.google.common.base.Preconditions;
+import io.github.jbellis.jvector.graph.ListRandomAccessVectorValues;
+import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -11,7 +13,7 @@ public record Dataset(
     String description,
     SimilarityFunction similarityFunction,
     int dimensions,
-    List<float[]> train,
+    RandomAccessVectorValues<float[]> train,
     List<float[]> test,
     List<List<Integer>> groundTruth) {
 
@@ -49,6 +51,12 @@ public record Dataset(
     Preconditions.checkArgument(neighborsPath.toFile().exists());
     var neighbors = CsvVectorLoader.loadGroundTruth(neighborsPath);
 
-    return new Dataset(description, similarityFunction, dimensions, train, test, neighbors);
+    return new Dataset(
+        description,
+        similarityFunction,
+        dimensions,
+        new ListRandomAccessVectorValues(train, train.size()),
+        test,
+        neighbors);
   }
 }

@@ -3,7 +3,9 @@ package com.github.kevindrosendahl.javaannbench.index;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -14,10 +16,7 @@ public interface Index extends AutoCloseable {
   String description();
 
   interface Builder extends Index {
-
-    void add(int id, float[] vector) throws IOException;
-
-    void commit() throws IOException;
+    BuildSummary build() throws IOException;
 
     long size() throws IOException;
 
@@ -25,13 +24,19 @@ public interface Index extends AutoCloseable {
         throws IOException {
       var parameters = Builder.Parameters.parse(description);
       var datasetPath = indexesPath.resolve(dataset.description());
+      Files.createDirectories(datasetPath);
 
       return switch (parameters.provider) {
         case "lucene" -> LuceneHnswIndex.Builder.create(
-            indexesPath.resolve(datasetPath), dataset.similarityFunction(), parameters);
+            indexesPath.resolve(datasetPath),
+            dataset.train(),
+            dataset.similarityFunction(),
+            parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.type);
       };
     }
+
+    record BuildSummary(Duration build, Duration commit) {}
 
     record Parameters(String provider, String type, Map<String, String> buildParameters) {
 

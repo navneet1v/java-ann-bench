@@ -2,14 +2,11 @@ package com.github.kevindrosendahl.javaannbench;
 
 import com.github.kevindrosendahl.javaannbench.bench.Recall;
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
-import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.index.Index;
-import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -74,30 +71,13 @@ public class BenchRunner implements Runnable {
   }
 
   private void build(Dataset dataset, Path indexesPath) throws Exception {
-    var start = Instant.now();
     try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
-      try (var progress = ProgressBar.create("build", dataset.train().size())) {
-        for (var vector : dataset.train()) {
-          index.add(0, vector);
-          progress.inc();
-        }
-      }
-
-      var endAddVectors = Instant.now();
-      LOGGER.info(
-          "finished adding vectors in {}, committing index",
-          Duration.between(start, endAddVectors));
-
-      index.commit();
-
-      var end = Instant.now();
-      LOGGER.info("finished committing index in {}", Duration.between(endAddVectors, end));
-
-      LOGGER.info(
-          "completed building index for {}: total time {}, total size {}",
-          index.description(),
-          Duration.between(start, end),
-          Bytes.ofBytes(index.size()));
+      var summary = index.build();
+      LOGGER.info("completed building index for {}:");
+      LOGGER.info("\tbuild phase: {}", summary.build());
+      LOGGER.info("\tcommit phase: {}", summary.commit());
+      LOGGER.info("\ttotal time: {}", summary.build().plus(summary.commit()));
+      LOGGER.info("\tsize: {}", index.size());
     }
   }
 

@@ -2,7 +2,6 @@ package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
-import com.google.common.base.Preconditions;
 import io.github.jbellis.jvector.disk.OnDiskGraphIndex;
 import io.github.jbellis.jvector.graph.GraphIndexBuilder;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
@@ -12,11 +11,10 @@ import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.ForkJoinPool;
+import java.util.stream.IntStream;
 
 public class JvectorIndex {
   public static final class Builder implements Index.Builder {
@@ -24,16 +22,28 @@ public class JvectorIndex {
     private final Path indexPath;
     private final RandomAccessVectorValues<float[]> vectors;
     private final GraphIndexBuilder<float[]> indexBuilder;
+    private final int M;
+    private final int beamWidth;
+    private final float neighborOverflow;
+    private final float alpha;
     private final int numThreads;
 
     private Builder(
         Path indexPath,
         RandomAccessVectorValues<float[]> vectors,
         GraphIndexBuilder<float[]> indexBuilder,
+        int M,
+        int beamWidth,
+        float neighborOverflow,
+        float alpha,
         int numThreads) {
       this.indexPath = indexPath;
       this.vectors = vectors;
       this.indexBuilder = indexBuilder;
+      this.M = M;
+      this.beamWidth = beamWidth;
+      this.neighborOverflow = neighborOverflow;
+      this.alpha = alpha;
       this.numThreads = numThreads;
     }
 
@@ -63,53 +73,45 @@ public class JvectorIndex {
               neighborOverflow,
               alpha);
 
-      var path = indexesPath.resolve(buildDescription());
-      return new JvectorIndex.Builder(path, vectors, indexBuilder, numThreads);
+      var path = indexesPath.resolve(buildDescription(M, beamWidth, neighborOverflow, alpha));
+      return new JvectorIndex.Builder(
+          path, vectors, indexBuilder, M, beamWidth, neighborOverflow, alpha, numThreads);
     }
 
-    public void build() throws IOException {
-      var executor =
-          new ThreadPoolExecutor(
-              this.numThreads,
-              this.numThreads,
-              0L,
-              TimeUnit.MILLISECONDS,
-              new LinkedBlockingQueue<Runnable>(numThreads * 2),
-              new CallerRunsPolicy());
+    @Override
+    public BuildSummary build() throws IOException {
+      var pool = new ForkJoinPool(this.numThreads);
+      var size = this.vectors.size();
 
-      try (var progress = ProgressBar.create("building", this.vectors.size())) {
-        for (int i = 0; i < this.vectors.size(); i++) {
-          var id = i;
-          CompletableFuture.runAsync(() -> this.indexBuilder.addGraphNode(id, this.vectors))
-              .thenRun(progress::inc);
-        }
-      }
-
-      executor.shutdown();
-      try {
-        Preconditions.checkArgument(executor.awaitTermination(1, TimeUnit.MINUTES));
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
+      var buildStart = Instant.now();
+      try (var progress = ProgressBar.create("building", size)) {
+        IntStream.range(0, size)
+            .parallel()
+            .forEach(
+                i -> {
+                  this.indexBuilder.addGraphNode(i, this.vectors);
+                });
       }
 
       this.indexBuilder.cleanup();
+      var buildEnd = Instant.now();
+
       var graph = this.indexBuilder.getGraph();
 
+      var commitStart = Instant.now();
       try (var output = new DataOutputStream(new FileOutputStream(this.indexPath.toFile()))) {
         OnDiskGraphIndex.write(graph, vectors, output);
       }
+      var commitEnd = Instant.now();
+
+      return new BuildSummary(
+          Duration.between(buildStart, buildEnd), Duration.between(commitStart, commitEnd));
     }
 
     @Override
     public String description() {
-      return buildDescription();
+      return buildDescription(this.M, this.beamWidth, this.neighborOverflow, this.alpha);
     }
-
-    @Override
-    public void add(int id, float[] vector) throws IOException {}
-
-    @Override
-    public void commit() throws IOException {}
 
     @Override
     public long size() throws IOException {
@@ -119,8 +121,11 @@ public class JvectorIndex {
     @Override
     public void close() throws Exception {}
 
-    private static String buildDescription() {
-      return "jvector_vamana";
+    private static String buildDescription(
+        int M, int beamWidth, float neighborOverflow, float alpha) {
+      return String.format(
+          "jvector_vamana_M:%s-beamWidth:%s-neighborOverflow:%s-alpha:%s",
+          M, beamWidth, neighborOverflow, alpha);
     }
   }
 }
