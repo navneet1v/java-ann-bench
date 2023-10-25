@@ -86,11 +86,11 @@ public final class LuceneHnswIndex {
           buildParameters.size() == 2,
           "unexpected number of build parameters. expected 2, got %s",
           buildParameters.size());
-      Preconditions.checkArgument(buildParameters.containsKey("M"), "must specify M");
+      Preconditions.checkArgument(buildParameters.containsKey("maxConn"), "must specify maxConn");
       Preconditions.checkArgument(
-          buildParameters.containsKey("efConstruction"), "must specify efConstruction");
-      var maxConn = Integer.parseInt(buildParameters.get("M"));
-      var beamWidth = Integer.parseInt(buildParameters.get("efConstruction"));
+          buildParameters.containsKey("beamWidth"), "must specify beamWidth");
+      var maxConn = Integer.parseInt(buildParameters.get("maxConn"));
+      var beamWidth = Integer.parseInt(buildParameters.get("beamWidth"));
 
       var similarity =
           switch (similarityFunction) {
@@ -218,16 +218,16 @@ public final class LuceneHnswIndex {
           buildParameters.size() == 2,
           "unexpected number of build parameters. expected 2, got %s",
           buildParameters.size());
-      Preconditions.checkArgument(buildParameters.containsKey("M"), "must specify M");
+      Preconditions.checkArgument(buildParameters.containsKey("maxConn"), "must specify maxConn");
       Preconditions.checkArgument(
-          buildParameters.containsKey("efConstruction"), "must specify efConstruction");
-      var maxConn = Integer.parseInt(buildParameters.get("M"));
-      var beamWidth = Integer.parseInt(buildParameters.get("efConstruction"));
+          buildParameters.containsKey("beamWidth"), "must specify beamWidth");
+      var maxConn = Integer.parseInt(buildParameters.get("maxConn"));
+      var beamWidth = Integer.parseInt(buildParameters.get("beamWidth"));
 
       var queryParameters = parameters.queryParameters();
       Preconditions.checkArgument(
           queryParameters.size() == 1,
-          "unexpected number of build parameters. expected 1, got %s",
+          "unexpected number of query parameters. expected 1, got %s",
           queryParameters.size());
       Preconditions.checkArgument(queryParameters.containsKey("efSearch"), "must specify efSearch");
       var numCandidates = Integer.parseInt(queryParameters.get("efSearch"));
