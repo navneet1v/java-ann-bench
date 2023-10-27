@@ -125,7 +125,7 @@ public final class LuceneIndex {
           };
       var writer =
           new IndexWriter(
-              directory, new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(2 * 1024));
+              directory, new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(20 * 1024));
 
       return new LuceneIndex.Builder(vectors, directory, writer, provider, buildParams, similarity);
     }
