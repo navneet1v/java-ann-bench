@@ -5,8 +5,10 @@ import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.github.kevindrosendahl.javaannbench.util.Records;
 import com.google.common.base.Preconditions;
+import com.indeed.util.mmap.MMapBuffer;
 import io.github.jbellis.jvector.disk.CachingGraphIndex;
 import io.github.jbellis.jvector.disk.OnDiskGraphIndex;
+import io.github.jbellis.jvector.disk.RandomAccessReader;
 import io.github.jbellis.jvector.disk.ReaderSupplier;
 import io.github.jbellis.jvector.disk.SimpleMappedReaderSupplier;
 import io.github.jbellis.jvector.graph.GraphIndex;
@@ -28,6 +30,9 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -228,7 +233,7 @@ public class JVectorIndex {
             case EUCLIDEAN -> VectorSimilarityFunction.EUCLIDEAN;
           };
 
-      var readerSupplier = new SimpleMappedReaderSupplier(path);
+      var readerSupplier = new MMapReaderSupplier(path);
       var onDiskGraph = new OnDiskGraphIndex<float[]>(readerSupplier, 0);
       var cachingGraph = new CachingGraphIndex(onDiskGraph);
       var compressedVectors =
@@ -397,6 +402,87 @@ public class JVectorIndex {
       LOGGER.info("wrote quantized vectors in {}", Duration.between(writeStart, writeEnd));
 
       return Optional.of(compressedVectors);
+    }
+  }
+
+  private static class MMapReaderSupplier implements ReaderSupplier {
+    private final MMapBuffer buffer;
+
+    public MMapReaderSupplier(Path path) throws IOException {
+      buffer = new MMapBuffer(path, FileChannel.MapMode.READ_ONLY, ByteOrder.BIG_ENDIAN);
+    }
+
+    @Override
+    public RandomAccessReader get() {
+      return new MMapReader(buffer);
+    }
+
+    @Override
+    public void close() throws IOException {
+      buffer.close();
+    }
+  }
+
+  private static class MMapReader implements RandomAccessReader {
+    private final MMapBuffer buffer;
+    private long position;
+    private byte[] floatsScratch = new byte[0];
+    private byte[] intsScratch = new byte[0];
+
+    MMapReader(MMapBuffer buffer) {
+      this.buffer = buffer;
+    }
+
+    @Override
+    public void seek(long offset) {
+      position = offset;
+    }
+
+    public int readInt() {
+      try {
+        return buffer.memory().getInt(position);
+      } finally {
+        position += Integer.BYTES;
+      }
+    }
+
+    public void readFully(byte[] bytes) {
+      read(bytes, 0, bytes.length);
+    }
+
+    private void read(byte[] bytes, int offset, int count) {
+      try {
+        buffer.memory().getBytes(position, bytes, offset, count);
+      } finally {
+        position += count;
+      }
+    }
+
+    @Override
+    public void readFully(float[] floats) {
+      int bytesToRead = floats.length * Float.BYTES;
+      if (floatsScratch.length < bytesToRead) {
+        floatsScratch = new byte[bytesToRead];
+      }
+      read(floatsScratch, 0, bytesToRead);
+      ByteBuffer byteBuffer = ByteBuffer.wrap(floatsScratch).order(ByteOrder.BIG_ENDIAN);
+      byteBuffer.asFloatBuffer().get(floats);
+    }
+
+    @Override
+    public void read(int[] ints, int offset, int count) {
+      int bytesToRead = (count - offset) * Integer.BYTES;
+      if (intsScratch.length < bytesToRead) {
+        intsScratch = new byte[bytesToRead];
+      }
+      read(intsScratch, 0, bytesToRead);
+      ByteBuffer byteBuffer = ByteBuffer.wrap(intsScratch).order(ByteOrder.BIG_ENDIAN);
+      byteBuffer.asIntBuffer().get(ints, offset, count);
+    }
+
+    @Override
+    public void close() {
+      // don't close buffer, let the Supplier handle that
     }
   }
 }

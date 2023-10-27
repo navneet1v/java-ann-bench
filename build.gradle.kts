@@ -39,6 +39,7 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.3")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
     implementation("org.jline:jline:3.23.0")
+    implementation("com.indeed:util-mmap:1.0.52-3042601")
 
     implementation(files("libs/lucene-core-10.0.0-SNAPSHOT.jar"))
     implementation(files("libs/jvector-1.0.3-SNAPSHOT.jar"))
