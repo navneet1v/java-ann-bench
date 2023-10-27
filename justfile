@@ -1,3 +1,5 @@
+heap_size := "16g"
+
 init:
   git submodule init
   git submodule update
@@ -17,7 +19,7 @@ update-lucene:
   cp submodules/lucene/lucene/core/build/libs/lucene-core-10.0.0-SNAPSHOT.jar libs/
 
 build dataset index:
-    @./gradlew run --console=plain --quiet --args="--build --dataset={{dataset}} --index={{index}}"
+    @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--build --dataset={{dataset}} --index={{index}}"
 
 query dataset index k:
-    @./gradlew run --console=plain --quiet --args="--query --k={{k}} --dataset={{dataset}} --index={{index}}"
+    @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize="-Xms{{heap_size}}" --args="--query --k={{k}} --dataset={{dataset}} --index={{index}}"

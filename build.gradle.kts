@@ -10,17 +10,18 @@ repositories {
     mavenCentral()
 }
 
+val defaultJvmArgs = listOf(
+        "--enable-preview",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+EnableVectorSupport",
+        "--add-modules",
+        "jdk.incubator.vector",
+        "--enable-native-access=ALL-UNNAMED"
+)
+
 application {
     mainClass.set("com.github.kevindrosendahl.javaannbench.BenchRunner")
-    applicationDefaultJvmArgs = listOf(
-            "-Xmx4g",
-            "--enable-preview",
-            "-XX:+UnlockExperimentalVMOptions",
-            "-XX:+EnableVectorSupport",
-            "--add-modules",
-            "jdk.incubator.vector",
-            "--enable-native-access=ALL-UNNAMED",
-    )
+    applicationDefaultJvmArgs = defaultJvmArgs
 }
 
 dependencies {
@@ -58,6 +59,18 @@ java {
 
 tasks.withType<JavaCompile> {
     options.compilerArgs.add("--enable-preview")
+}
+
+tasks.named<JavaExec>("run") {
+    val minHeap = project.findProperty("minHeapSize") as String?
+    val maxHeap = project.findProperty("maxHeapSize") as String?
+
+    val dynamicJvmArgs = mutableListOf<String>().apply {
+        if (minHeap != null) add(minHeap)
+        if (maxHeap != null) add(maxHeap)
+    }
+
+    jvmArgs = defaultJvmArgs + dynamicJvmArgs
 }
 
 tasks.test {
