@@ -24,6 +24,7 @@ import io.github.jbellis.jvector.pq.ProductQuantization;
 import io.github.jbellis.jvector.util.Bits;
 import io.github.jbellis.jvector.vector.VectorEncoding;
 import io.github.jbellis.jvector.vector.VectorSimilarityFunction;
+import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -142,7 +143,9 @@ public class JVectorIndex {
       LOGGER.info("finished building index, committing");
       var commitStart = Instant.now();
       try (var output =
-          new DataOutputStream(new FileOutputStream(this.indexPath.resolve(GRAPH_FILE).toFile()))) {
+          new DataOutputStream(
+              new BufferedOutputStream(
+                  Files.newOutputStream(this.indexPath.resolve(GRAPH_FILE))))) {
         var graph = this.indexBuilder.getGraph();
         OnDiskGraphIndex.write(graph, vectors, output);
       }
