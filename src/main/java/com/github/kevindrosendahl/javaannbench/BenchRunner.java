@@ -110,6 +110,8 @@ public class BenchRunner implements Runnable {
           "\tmax duration {}", Duration.ofNanos((long) result.executionDurationMicros().getMax()));
       LOGGER.info("\tmax minor faults {}", result.minorFaults().getMax());
       LOGGER.info("\tmax major faults {}", result.majorFaults().getMax());
+      LOGGER.info("\ttotal minor faults {}", result.minorFaults().getSum());
+      LOGGER.info("\ttotal major faults {}", result.majorFaults().getSum());
     }
   }
 
