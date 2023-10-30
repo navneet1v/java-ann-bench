@@ -2,6 +2,7 @@ package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
+import com.github.kevindrosendahl.javaannbench.index.Index.Builder.Parameters;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.github.kevindrosendahl.javaannbench.util.Records;
 import com.google.common.base.Preconditions;
@@ -12,11 +13,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99Codec;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.apache.lucene.codecs.vectorsandbox.VectorSandboxHnswVectorsFormat;
+import org.apache.lucene.codecs.vectorsandbox.VectorSandboxVamanaVectorsFormat;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.document.StoredField;
@@ -34,7 +37,8 @@ public final class LuceneIndex {
 
   public enum Provider {
     HNSW("hnsw"),
-    SANDBOX_HNSW("sandbox-hnsw");
+    SANDBOX_HNSW("sandbox-hnsw"),
+    SANDBOX_VAMANA("sandbox-vamana");
 
     final String description;
 
@@ -46,12 +50,18 @@ public final class LuceneIndex {
       return switch (description) {
         case "hnsw" -> Provider.HNSW;
         case "sandbox-hnsw" -> Provider.SANDBOX_HNSW;
+        case "sandbox-vamana" -> Provider.SANDBOX_VAMANA;
         default -> throw new RuntimeException("unexpected lucene index provider " + description);
       };
     }
   }
 
-  public record BuildParameters(int maxConn, int beamWidth) {}
+  public sealed interface BuildParameters permits VamanaBuildParameters, HnswBuildParameters {}
+
+  public record HnswBuildParameters(int maxConn, int beamWidth) implements BuildParameters {}
+
+  public record VamanaBuildParameters(int maxConn, int beamWidth, float alpha)
+      implements BuildParameters {}
 
   public record QueryParameters(int numCandidates) {}
 
@@ -90,8 +100,7 @@ public final class LuceneIndex {
         throws IOException {
       var provider = Provider.parse(parameters.type());
 
-      var buildParams =
-          Records.fromMap(parameters.buildParameters(), BuildParameters.class, "build parameters");
+      var buildParams = parseBuildPrams(provider, parameters.buildParameters());
 
       var similarity =
           switch (similarityFunction) {
@@ -112,14 +121,26 @@ public final class LuceneIndex {
               @Override
               public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
                 return new Lucene99HnswVectorsFormat(
-                    buildParams.maxConn, buildParams.beamWidth, null);
+                    ((HnswBuildParameters) buildParams).maxConn,
+                    ((HnswBuildParameters) buildParams).beamWidth,
+                    null);
               }
             };
             case SANDBOX_HNSW -> new Lucene99Codec() {
               @Override
               public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
                 return new VectorSandboxHnswVectorsFormat(
-                    buildParams.maxConn, buildParams.beamWidth);
+                    ((HnswBuildParameters) buildParams).maxConn,
+                    ((HnswBuildParameters) buildParams).beamWidth);
+              }
+            };
+            case SANDBOX_VAMANA -> new Lucene99Codec() {
+              @Override
+              public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
+                return new VectorSandboxVamanaVectorsFormat(
+                    ((VamanaBuildParameters) buildParams).maxConn,
+                    ((VamanaBuildParameters) buildParams).beamWidth,
+                    ((VamanaBuildParameters) buildParams).alpha);
               }
             };
           };
@@ -133,7 +154,6 @@ public final class LuceneIndex {
     @Override
     public BuildSummary build() throws IOException {
       var size = this.vectors.size();
-      Duration build;
 
       var buildStart = Instant.now();
       try (var progress = ProgressBar.create("building", size)) {
@@ -177,9 +197,16 @@ public final class LuceneIndex {
     }
 
     private static String buildDescription(Provider provider, BuildParameters params) {
-      return String.format(
-          "lucene_%s_maxConn:%s-beamWidth:%s",
-          provider.description, params.maxConn, params.beamWidth);
+      return String.format("lucene_%s_%s", provider.description, buildParamString(params));
+    }
+
+    private static String buildParamString(BuildParameters params) {
+      return switch (params) {
+        case HnswBuildParameters hnsw -> String.format(
+            "maxConn:%s-beamWidth:%s", hnsw.maxConn, hnsw.beamWidth);
+        case VamanaBuildParameters vamana -> String.format(
+            "maxConn:%s-beamWidth:%s", vamana.maxConn, vamana.beamWidth, vamana.alpha);
+      };
     }
   }
 
@@ -210,8 +237,7 @@ public final class LuceneIndex {
     public static Index.Querier create(Path indexesPath, Parameters parameters) throws IOException {
       var provider = Provider.parse(parameters.type());
 
-      var buildParams =
-          Records.fromMap(parameters.buildParameters(), BuildParameters.class, "build parameters");
+      var buildParams = parseBuildPrams(provider, parameters.buildParameters());
       var queryParams =
           Records.fromMap(parameters.queryParameters(), QueryParameters.class, "query parameters");
 
@@ -250,10 +276,9 @@ public final class LuceneIndex {
     @Override
     public String description() {
       return String.format(
-          "lucene_%s_maxConn:%s-beamWidth:%s_numCandidates:%s",
+          "lucene_%s_%s_numCandidates:%s",
           provider.description,
-          buildParams.maxConn,
-          buildParams.beamWidth,
+          LuceneIndex.Builder.buildParamString(buildParams),
           queryParams.numCandidates);
     }
 
@@ -262,5 +287,15 @@ public final class LuceneIndex {
       this.directory.close();
       this.reader.close();
     }
+  }
+
+  private static BuildParameters parseBuildPrams(
+      Provider provider, Map<String, String> parameters) {
+    return switch (provider) {
+      case HNSW, SANDBOX_HNSW -> Records.fromMap(
+          parameters, HnswBuildParameters.class, "build parameters");
+      case SANDBOX_VAMANA -> Records.fromMap(
+          parameters, VamanaBuildParameters.class, "build parameters");
+    };
   }
 }
