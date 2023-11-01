@@ -18,7 +18,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99Codec;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
-import org.apache.lucene.codecs.vectorsandbox.VectorSandboxHnswVectorsFormat;
 import org.apache.lucene.codecs.vectorsandbox.VectorSandboxVamanaVectorsFormat;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.KnnFloatVectorField;
@@ -37,7 +36,6 @@ public final class LuceneIndex {
 
   public enum Provider {
     HNSW("hnsw"),
-    SANDBOX_HNSW("sandbox-hnsw"),
     SANDBOX_VAMANA("sandbox-vamana");
 
     final String description;
@@ -49,7 +47,6 @@ public final class LuceneIndex {
     static Provider parse(String description) {
       return switch (description) {
         case "hnsw" -> Provider.HNSW;
-        case "sandbox-hnsw" -> Provider.SANDBOX_HNSW;
         case "sandbox-vamana" -> Provider.SANDBOX_VAMANA;
         default -> throw new RuntimeException("unexpected lucene index provider " + description);
       };
@@ -126,14 +123,6 @@ public final class LuceneIndex {
                     null);
               }
             };
-            case SANDBOX_HNSW -> new Lucene99Codec() {
-              @Override
-              public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-                return new VectorSandboxHnswVectorsFormat(
-                    ((HnswBuildParameters) buildParams).maxConn,
-                    ((HnswBuildParameters) buildParams).beamWidth);
-              }
-            };
             case SANDBOX_VAMANA -> new Lucene99Codec() {
               @Override
               public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
@@ -146,7 +135,11 @@ public final class LuceneIndex {
           };
       var writer =
           new IndexWriter(
-              directory, new IndexWriterConfig().setCodec(codec).setRAMBufferSizeMB(20 * 1024));
+              directory,
+              new IndexWriterConfig()
+                  .setCodec(codec)
+                  .setUseCompoundFile(false)
+                  .setRAMBufferSizeMB(20 * 1024));
 
       return new LuceneIndex.Builder(vectors, directory, writer, provider, buildParams, similarity);
     }
@@ -292,8 +285,7 @@ public final class LuceneIndex {
   private static BuildParameters parseBuildPrams(
       Provider provider, Map<String, String> parameters) {
     return switch (provider) {
-      case HNSW, SANDBOX_HNSW -> Records.fromMap(
-          parameters, HnswBuildParameters.class, "build parameters");
+      case HNSW -> Records.fromMap(parameters, HnswBuildParameters.class, "build parameters");
       case SANDBOX_VAMANA -> Records.fromMap(
           parameters, VamanaBuildParameters.class, "build parameters");
     };

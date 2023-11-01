@@ -1,4 +1,4 @@
-heap_size := "16g"
+heap_size := "10g"
 
 init:
   git submodule init
@@ -13,7 +13,7 @@ update-jvector:
   cp submodules/jvector/jvector-multirelease/target/jvector-1.0.3-SNAPSHOT.jar libs/
 
 update-lucene:
-  git -C submodules/lucene pull origin ann-sandbox
+  git -C submodules/lucene pull origin vamana2
   cd submodules/lucene && ./gradlew jar
   mkdir -p libs
   cp submodules/lucene/lucene/core/build/libs/lucene-core-10.0.0-SNAPSHOT.jar libs/
