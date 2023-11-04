@@ -46,6 +46,10 @@ public class Records {
       return Float.parseFloat(value);
     }
 
+    if (type == boolean.class) {
+      return Boolean.parseBoolean(value);
+    }
+
     throw new RuntimeException("unsupported class type: " + type);
   }
 }

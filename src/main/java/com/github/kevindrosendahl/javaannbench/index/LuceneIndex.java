@@ -2,7 +2,6 @@ package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
-import com.github.kevindrosendahl.javaannbench.index.Index.Builder.Parameters;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.github.kevindrosendahl.javaannbench.util.Records;
 import com.google.common.base.Preconditions;
@@ -18,6 +17,8 @@ import org.apache.commons.io.FileUtils;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99Codec;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
+import org.apache.lucene.codecs.lucene99.Lucene99ScalarQuantizedVectorsFormat;
+import org.apache.lucene.codecs.vectorsandbox.VectorSandboxScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.vectorsandbox.VectorSandboxVamanaVectorsFormat;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.KnnFloatVectorField;
@@ -55,9 +56,11 @@ public final class LuceneIndex {
 
   public sealed interface BuildParameters permits VamanaBuildParameters, HnswBuildParameters {}
 
-  public record HnswBuildParameters(int maxConn, int beamWidth) implements BuildParameters {}
+  public record HnswBuildParameters(int maxConn, int beamWidth, boolean scalarQuantization)
+      implements BuildParameters {}
 
-  public record VamanaBuildParameters(int maxConn, int beamWidth, float alpha)
+  public record VamanaBuildParameters(
+      int maxConn, int beamWidth, float alpha, boolean scalarQuantization)
       implements BuildParameters {}
 
   public record QueryParameters(int numCandidates) {}
@@ -120,7 +123,9 @@ public final class LuceneIndex {
                 return new Lucene99HnswVectorsFormat(
                     ((HnswBuildParameters) buildParams).maxConn,
                     ((HnswBuildParameters) buildParams).beamWidth,
-                    null);
+                    ((HnswBuildParameters) buildParams).scalarQuantization
+                        ? new Lucene99ScalarQuantizedVectorsFormat()
+                        : null);
               }
             };
             case SANDBOX_VAMANA -> new Lucene99Codec() {
@@ -129,7 +134,10 @@ public final class LuceneIndex {
                 return new VectorSandboxVamanaVectorsFormat(
                     ((VamanaBuildParameters) buildParams).maxConn,
                     ((VamanaBuildParameters) buildParams).beamWidth,
-                    ((VamanaBuildParameters) buildParams).alpha);
+                    ((VamanaBuildParameters) buildParams).alpha,
+                    ((VamanaBuildParameters) buildParams).scalarQuantization
+                        ? new VectorSandboxScalarQuantizedVectorsFormat()
+                        : null);
               }
             };
           };
@@ -196,9 +204,11 @@ public final class LuceneIndex {
     private static String buildParamString(BuildParameters params) {
       return switch (params) {
         case HnswBuildParameters hnsw -> String.format(
-            "maxConn:%s-beamWidth:%s", hnsw.maxConn, hnsw.beamWidth);
+            "maxConn:%s-beamWidth:%s-scalarQuantization:%s",
+            hnsw.maxConn, hnsw.beamWidth, hnsw.scalarQuantization);
         case VamanaBuildParameters vamana -> String.format(
-            "maxConn:%s-beamWidth:%s", vamana.maxConn, vamana.beamWidth, vamana.alpha);
+            "maxConn:%s-beamWidth:%s-alpha:%s-scalarQuantization:%s",
+            vamana.maxConn, vamana.beamWidth, vamana.alpha, vamana.scalarQuantization);
       };
     }
   }
