@@ -3,6 +3,7 @@ package com.github.kevindrosendahl.javaannbench.index;
 import com.github.kevindrosendahl.javaannbench.dataset.SimilarityFunction;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
+import com.github.kevindrosendahl.javaannbench.util.Exceptions;
 import com.github.kevindrosendahl.javaannbench.util.Records;
 import com.google.common.base.Preconditions;
 import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
@@ -13,6 +14,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.stream.IntStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99Codec;
@@ -56,11 +60,17 @@ public final class LuceneIndex {
 
   public sealed interface BuildParameters permits VamanaBuildParameters, HnswBuildParameters {}
 
-  public record HnswBuildParameters(int maxConn, int beamWidth, boolean scalarQuantization)
+  public record HnswBuildParameters(
+      int maxConn, int beamWidth, boolean scalarQuantization, int numThreads, boolean forceMerge)
       implements BuildParameters {}
 
   public record VamanaBuildParameters(
-      int maxConn, int beamWidth, float alpha, boolean scalarQuantization)
+      int maxConn,
+      int beamWidth,
+      float alpha,
+      boolean scalarQuantization,
+      int numThreads,
+      boolean forceMerge)
       implements BuildParameters {}
 
   public record QueryParameters(int numCandidates) {}
@@ -117,29 +127,43 @@ public final class LuceneIndex {
 
       var codec =
           switch (provider) {
-            case HNSW -> new Lucene99Codec() {
-              @Override
-              public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-                return new Lucene99HnswVectorsFormat(
-                    ((HnswBuildParameters) buildParams).maxConn,
-                    ((HnswBuildParameters) buildParams).beamWidth,
-                    ((HnswBuildParameters) buildParams).scalarQuantization
-                        ? new Lucene99ScalarQuantizedVectorsFormat()
-                        : null);
-              }
-            };
-            case SANDBOX_VAMANA -> new Lucene99Codec() {
-              @Override
-              public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-                return new VectorSandboxVamanaVectorsFormat(
-                    ((VamanaBuildParameters) buildParams).maxConn,
-                    ((VamanaBuildParameters) buildParams).beamWidth,
-                    ((VamanaBuildParameters) buildParams).alpha,
-                    ((VamanaBuildParameters) buildParams).scalarQuantization
-                        ? new VectorSandboxScalarQuantizedVectorsFormat()
-                        : null);
-              }
-            };
+            case HNSW -> {
+              var hnswParams = (HnswBuildParameters) buildParams;
+              yield new Lucene99Codec() {
+                @Override
+                public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
+                  return new Lucene99HnswVectorsFormat(
+                      hnswParams.maxConn,
+                      hnswParams.beamWidth,
+                      hnswParams.scalarQuantization
+                          ? new Lucene99ScalarQuantizedVectorsFormat()
+                          : null,
+                      hnswParams.numThreads,
+                      hnswParams.numThreads == 1
+                          ? null
+                          : Executors.newFixedThreadPool(hnswParams.numThreads));
+                }
+              };
+            }
+            case SANDBOX_VAMANA -> {
+              var vamanaParams = (VamanaBuildParameters) buildParams;
+              yield new Lucene99Codec() {
+                @Override
+                public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
+                  return new VectorSandboxVamanaVectorsFormat(
+                      vamanaParams.maxConn,
+                      vamanaParams.beamWidth,
+                      vamanaParams.alpha,
+                      vamanaParams.scalarQuantization
+                          ? new VectorSandboxScalarQuantizedVectorsFormat()
+                          : null,
+                      vamanaParams.numThreads,
+                      vamanaParams.numThreads == 1
+                          ? null
+                          : Executors.newFixedThreadPool(vamanaParams.numThreads));
+                }
+              };
+            }
           };
       var writer =
           new IndexWriter(
@@ -155,23 +179,54 @@ public final class LuceneIndex {
     @Override
     public BuildSummary build() throws IOException {
       var size = this.vectors.size();
+      var numThreads =
+          switch (buildParams) {
+            case HnswBuildParameters params -> params.numThreads;
+            case VamanaBuildParameters params -> params.numThreads;
+          };
 
       var buildStart = Instant.now();
-      try (var progress = ProgressBar.create("building", size)) {
-        var doc = new Document();
-
-        for (int i = 0; i < this.vectors.size(); i++) {
-          doc.clear();
-          doc.add(new StoredField(ID_FIELD, i));
-          doc.add(
-              new KnnFloatVectorField(
-                  VECTOR_FIELD, this.vectors.vectorValue(i), this.similarityFunction));
-          this.writer.addDocument(doc);
-          progress.inc();
+      try (var pool = new ForkJoinPool(numThreads)) {
+        try (var progress = ProgressBar.create("building", size)) {
+          pool.submit(
+                  () -> {
+                    IntStream.range(0, size)
+                        .parallel()
+                        .forEach(
+                            i -> {
+                              Exceptions.wrap(
+                                  () -> {
+                                    var doc = new Document();
+                                    doc.add(new StoredField(ID_FIELD, i));
+                                    doc.add(
+                                        new KnnFloatVectorField(
+                                            VECTOR_FIELD,
+                                            this.vectors.vectorValue(i),
+                                            this.similarityFunction));
+                                    this.writer.addDocument(doc);
+                                  });
+                              progress.inc();
+                            });
+                  })
+              .join();
         }
       }
       var buildEnd = Instant.now();
 
+      var merge =
+          switch (buildParams) {
+            case HnswBuildParameters params -> params.forceMerge;
+            case VamanaBuildParameters params -> params.forceMerge;
+          };
+
+      var mergeStart = Instant.now();
+      if (merge) {
+        System.out.println("merging");
+        this.writer.forceMerge(1);
+      }
+      var mergeEnd = Instant.now();
+
+      System.out.println("committing");
       var commitStart = Instant.now();
       this.writer.commit();
       var commitEnd = Instant.now();
@@ -179,6 +234,7 @@ public final class LuceneIndex {
       return new BuildSummary(
           List.of(
               new BuildPhase("build", Duration.between(buildStart, buildEnd)),
+              new BuildPhase("merge", Duration.between(mergeStart, mergeEnd)),
               new BuildPhase("commit", Duration.between(commitStart, commitEnd))));
     }
 
@@ -204,11 +260,20 @@ public final class LuceneIndex {
     private static String buildParamString(BuildParameters params) {
       return switch (params) {
         case HnswBuildParameters hnsw -> String.format(
-            "maxConn:%s-beamWidth:%s-scalarQuantization:%s",
-            hnsw.maxConn, hnsw.beamWidth, hnsw.scalarQuantization);
+            "maxConn:%s-beamWidth:%s-scalarQuantization:%s-numThreads:%s-forceMerge:%s",
+            hnsw.maxConn,
+            hnsw.beamWidth,
+            hnsw.scalarQuantization,
+            hnsw.numThreads,
+            hnsw.forceMerge);
         case VamanaBuildParameters vamana -> String.format(
-            "maxConn:%s-beamWidth:%s-alpha:%s-scalarQuantization:%s",
-            vamana.maxConn, vamana.beamWidth, vamana.alpha, vamana.scalarQuantization);
+            "maxConn:%s-beamWidth:%s-alpha:%s-scalarQuantization:%s-numThreads:%s-forceMerge:%s",
+            vamana.maxConn,
+            vamana.beamWidth,
+            vamana.alpha,
+            vamana.scalarQuantization,
+            vamana.numThreads,
+            vamana.forceMerge);
       };
     }
   }

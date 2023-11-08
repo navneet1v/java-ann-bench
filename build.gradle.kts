@@ -16,7 +16,8 @@ val defaultJvmArgs = listOf(
         "-XX:+EnableVectorSupport",
         "--add-modules",
         "jdk.incubator.vector",
-        "--enable-native-access=ALL-UNNAMED"
+        "--enable-native-access=ALL-UNNAMED",
+        "-ea"
 )
 
 application {
