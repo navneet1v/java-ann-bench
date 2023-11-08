@@ -18,6 +18,9 @@ update-lucene:
   mkdir -p libs
   cp submodules/lucene/lucene/core/build/libs/lucene-core-10.0.0-SNAPSHOT.jar libs/
 
+build-docker:
+  docker build -t java-ann-bench .
+
 build dataset index:
     @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--build --dataset={{dataset}} --index={{index}}"
 

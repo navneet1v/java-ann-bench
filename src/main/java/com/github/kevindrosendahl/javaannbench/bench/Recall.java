@@ -7,6 +7,7 @@ import io.github.jbellis.jvector.graph.RandomAccessVectorValues;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import oshi.SystemInfo;
@@ -24,18 +25,25 @@ public class Recall {
 
   public static Results test(
       Index.Querier index,
-      RandomAccessVectorValues<float[]> queries,
+      RandomAccessVectorValues<float[]> randomQueries,
       int k,
       List<List<Integer>> groundTruths)
       throws IOException {
     var systemInfo = new SystemInfo();
     var process = systemInfo.getOperatingSystem().getCurrentProcess();
-    var numQueries = queries.size();
+    var numQueries = randomQueries.size();
+    var queries = new ArrayList<float[]>(numQueries);
+
+    try (var progress = ProgressBar.create("loading queries", numQueries)) {
+      for (int i = 0; i < numQueries; i++) {
+        queries.add(randomQueries.vectorValue(i));
+      }
+    }
 
     try (var progress = ProgressBar.create("warmup", WARMUP_ITERATIONS * numQueries)) {
       for (int i = 0; i < WARMUP_ITERATIONS; i++) {
         for (int j = 0; j < numQueries; j++) {
-          var query = queries.vectorValue(j);
+          var query = queries.get(j);
           index.query(query, k);
           progress.inc();
         }
@@ -50,7 +58,7 @@ public class Recall {
     try (var progress = ProgressBar.create("testing", TEST_ITERATIONS * numQueries)) {
       for (int i = 0; i < TEST_ITERATIONS; i++) {
         for (int j = 0; j < numQueries; j++) {
-          var query = queries.vectorValue(j);
+          var query = queries.get(j);
 
           Preconditions.checkArgument(process.updateAttributes(), "failed to update process stats");
           var startMinorFaults = process.getMinorFaults();
