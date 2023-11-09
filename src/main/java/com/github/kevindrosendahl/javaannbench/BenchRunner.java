@@ -93,12 +93,11 @@ public class BenchRunner implements Runnable {
   }
 
   private void query(Path datasetDirectory, Path indexesPath) throws Exception {
-    Preconditions.checkArgument(this.k != 0, "must supply k if running query");
     var dataset = dataset(datasetDirectory);
     dataset.test().advise(Advice.WILLNEED);
 
     try (var index = querier(dataset, indexesPath)) {
-      var result = Recall.test(index, dataset.test(), this.k, dataset.groundTruth());
+      var result = Recall.test(index, dataset.test(), k(), dataset.groundTruth());
 
       LOGGER.info("completed recall test for {}:", index.description());
       LOGGER.info("\taverage recall {}", result.recall().getMean());
@@ -152,5 +151,13 @@ public class BenchRunner implements Runnable {
         config.type(),
         config.buildParameters(),
         config.queryParameters());
+  }
+
+  private int k() throws Exception {
+    if (this.config == null) {
+      return this.k;
+    }
+
+    return QuerySpec.load(Path.of(this.config)).k();
   }
 }
