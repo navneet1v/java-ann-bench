@@ -51,7 +51,8 @@ public class BuildBench {
 
     void write(Path reportsPath) throws Exception {
       var now = Instant.now().getEpochSecond();
-      var path = reportsPath.resolve(String.format("%s-%s", now, indexDescription));
+      var path =
+          reportsPath.resolve(String.format("%s-%s-%s", now, spec.dataset(), indexDescription));
       var data =
           new String[] {
             "v1",
