@@ -35,14 +35,14 @@ public record QuerySpec(
   public String buildString() {
     return build.entrySet().stream()
         .sorted(Entry.comparingByKey())
-        .map(entry -> "%s:%s")
+        .map(entry -> String.format("%s:%s", entry.getKey(), entry.getValue()))
         .collect(Collectors.joining("-"));
   }
 
   public String queryString() {
     return query.entrySet().stream()
         .sorted(Entry.comparingByKey())
-        .map(entry -> "%s:%s")
+        .map(entry -> String.format("%s:%s", entry.getKey(), entry.getValue()))
         .collect(Collectors.joining("-"));
   }
 }

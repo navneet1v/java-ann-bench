@@ -19,7 +19,7 @@ public record BuildSpec(String dataset, String provider, String type, Map<String
   public String buildString() {
     return build.entrySet().stream()
         .sorted(Entry.comparingByKey())
-        .map(entry -> "%s:%s")
+        .map(entry -> String.format("%s:%s", entry.getKey(), entry.getValue()))
         .collect(Collectors.joining("-"));
   }
 }
