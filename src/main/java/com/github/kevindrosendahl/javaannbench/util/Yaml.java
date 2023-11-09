@@ -1,6 +1,7 @@
 package com.github.kevindrosendahl.javaannbench.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.File;
@@ -9,7 +10,9 @@ import java.nio.file.Files;
 
 public class Yaml {
 
-  private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
+  private static final ObjectMapper YAML_MAPPER =
+      new ObjectMapper(new YAMLFactory())
+          .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   public static String toYaml(Object value) {
     try {
