@@ -42,9 +42,10 @@ bin/
 .DS_Store
 
 ### datasets and index builds ###
+configs
 datasets
 indexes
-results
+reports
 config.yml
 
 ### dependencies ###
