@@ -37,11 +37,8 @@ RUN git clone https://github.com/kevindrosendahl/java-ann-bench.git /java-ann-be
 WORKDIR /java-ann-bench
 RUN just init
 RUN ./gradlew build
-RUN rm -rf /java-ann-bench
 
 # Reset the working directory
-WORKDIR /
-
-
+WORKDIR /java-ann-bench
 
 CMD ["/bin/bash"]
