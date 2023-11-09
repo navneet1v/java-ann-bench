@@ -78,7 +78,7 @@ public class BenchRunner implements Runnable {
     var dataset = dataset(datasetDirectory);
     dataset.train().advise(Advice.WILLNEED);
 
-    try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
+    try (var index = builder(dataset, indexesPath)) {
       var summary = index.build();
       var totalTime =
           summary.phases().stream().map(BuildPhase::duration).reduce(Duration.ZERO, Duration::plus);
