@@ -1,6 +1,7 @@
 package com.github.kevindrosendahl.javaannbench.index;
 
 import com.github.kevindrosendahl.javaannbench.dataset.Dataset;
+import com.github.kevindrosendahl.javaannbench.index.Index.Querier.Parameters;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
@@ -24,6 +25,22 @@ public interface Index extends AutoCloseable {
     static Builder fromDescription(Dataset dataset, Path indexesPath, String description)
         throws IOException {
       var parameters = Builder.Parameters.parse(description);
+      return fromBuilderParameters(dataset, indexesPath, parameters);
+    }
+
+    static Builder fromParameters(
+        Dataset dataset,
+        Path indexesPath,
+        String provider,
+        String type,
+        Map<String, String> buildParameters)
+        throws IOException {
+      var parameters = new Parameters(provider, type, buildParameters);
+      return fromBuilderParameters(dataset, indexesPath, parameters);
+    }
+
+    private static Builder fromBuilderParameters(
+        Dataset dataset, Path indexesPath, Parameters parameters) throws IOException {
       var datasetPath = indexesPath.resolve(dataset.name());
       Files.createDirectories(datasetPath);
 
@@ -74,6 +91,23 @@ public interface Index extends AutoCloseable {
     static Querier fromDescription(Dataset dataset, Path indexesPath, String description)
         throws IOException {
       var parameters = Parameters.parse(description);
+      return fromQuerierParameters(dataset, indexesPath, parameters);
+    }
+
+    static Querier fromParameters(
+        Dataset dataset,
+        Path indexesPath,
+        String provider,
+        String type,
+        Map<String, String> buildParameters,
+        Map<String, String> queryParameters)
+        throws IOException {
+      var parameters = new Parameters(provider, type, buildParameters, queryParameters);
+      return fromQuerierParameters(dataset, indexesPath, parameters);
+    }
+
+    private static Querier fromQuerierParameters(
+        Dataset dataset, Path indexesPath, Parameters parameters) throws IOException {
       var datasetPath = indexesPath.resolve(dataset.name());
 
       return switch (parameters.provider) {

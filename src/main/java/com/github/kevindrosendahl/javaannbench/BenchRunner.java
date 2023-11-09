@@ -7,7 +7,6 @@ import com.github.kevindrosendahl.javaannbench.index.Index;
 import com.github.kevindrosendahl.javaannbench.index.Index.Builder.BuildPhase;
 import com.github.kevindrosendahl.javaannbench.util.Madvise.Advice;
 import com.google.common.base.Preconditions;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.slf4j.Logger;
@@ -27,6 +26,9 @@ public class BenchRunner implements Runnable {
 
   @Option(names = {"-q", "--query"})
   private boolean query;
+
+  @Option(names = {"-c", "--config"})
+  private String config;
 
   @Option(names = {"-k", "--k"})
   private int k;
@@ -63,18 +65,17 @@ public class BenchRunner implements Runnable {
     var datasetDirectory = workingDirectory.resolve("datasets");
     var indexesPath = workingDirectory.resolve("indexes");
 
-    var dataset = dataset(datasetDirectory);
-
     if (this.build) {
-      build(dataset, indexesPath);
+      build(datasetDirectory, indexesPath);
     }
 
     if (this.query) {
-      query(dataset, indexesPath);
+      query(datasetDirectory, indexesPath);
     }
   }
 
-  private void build(Dataset dataset, Path indexesPath) throws Exception {
+  private void build(Path datasetDirectory, Path indexesPath) throws Exception {
+    var dataset = dataset(datasetDirectory);
     dataset.train().advise(Advice.WILLNEED);
 
     try (var index = Index.Builder.fromDescription(dataset, indexesPath, this.index)) {
@@ -91,12 +92,12 @@ public class BenchRunner implements Runnable {
     }
   }
 
-  private void query(Dataset dataset, Path indexesPath) throws Exception {
+  private void query(Path datasetDirectory, Path indexesPath) throws Exception {
     Preconditions.checkArgument(this.k != 0, "must supply k if running query");
-
+    var dataset = dataset(datasetDirectory);
     dataset.test().advise(Advice.WILLNEED);
 
-    try (var index = Index.Querier.fromDescription(dataset, indexesPath, this.index)) {
+    try (var index = querier(dataset, indexesPath)) {
       var result = Recall.test(index, dataset.test(), this.k, dataset.groundTruth());
 
       LOGGER.info("completed recall test for {}:", index.description());
@@ -115,7 +116,41 @@ public class BenchRunner implements Runnable {
     }
   }
 
-  private Dataset dataset(Path datasetsPath) throws IOException, InterruptedException {
-    return Datasets.load(datasetsPath, this.dataset);
+  private Dataset dataset(Path datasetsPath) throws Exception {
+    var dataset = this.dataset;
+    if (this.config != null) {
+      if (this.build) {
+        dataset = BuildSpec.load(Path.of(this.config)).dataset();
+      } else {
+        dataset = QuerySpec.load(Path.of(this.config)).dataset();
+      }
+    }
+
+    return Datasets.load(datasetsPath, dataset);
+  }
+
+  private Index.Builder builder(Dataset dataset, Path indexesPath) throws Exception {
+    if (this.config == null) {
+      return Index.Builder.fromDescription(dataset, indexesPath, this.index);
+    }
+
+    var config = BuildSpec.load(Path.of(this.config));
+    return Index.Builder.fromParameters(
+        dataset, indexesPath, config.provider(), config.type(), config.buildParameters());
+  }
+
+  private Index.Querier querier(Dataset dataset, Path indexesPath) throws Exception {
+    if (this.config == null) {
+      return Index.Querier.fromDescription(dataset, indexesPath, this.index);
+    }
+
+    var config = QuerySpec.load(Path.of(this.config));
+    return Index.Querier.fromParameters(
+        dataset,
+        indexesPath,
+        config.provider(),
+        config.type(),
+        config.buildParameters(),
+        config.queryParameters());
   }
 }
