@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
   gnupg \
   git
 
+RUN snap install yq
+
 # Add the Corretto APT repository
 RUN wget -O- https://apt.corretto.aws/corretto.key | gpg --dearmor > /usr/share/keyrings/corretto-archive-keyring.gpg && \
   gpg --no-default-keyring --keyring /usr/share/keyrings/corretto-archive-keyring.gpg --fingerprint && \
