@@ -37,7 +37,7 @@ public class QueryBench {
       int k = spec.k();
 
       for (int i = 0; i < numQueries; i++) {
-        queries.add(dataset.train().vectorValue(i));
+        queries.add(dataset.test().vectorValue(i));
       }
 
       try (var progress = ProgressBar.create("warmup", WARMUP_ITERATIONS * numQueries)) {
