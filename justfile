@@ -46,4 +46,4 @@ query-docker-internal config:
   set -euo pipefail
 
   heap_size=$(yq e '.runtime.heapSize' {{config}})
-  @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
+  ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
