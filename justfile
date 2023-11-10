@@ -29,7 +29,7 @@ query config:
 
 query-docker config:
   #!/usr/bin/env bash
-  set -euo pipefail
+  set -exuo pipefail
 
   system_memory=$(yq e '.runtime.systemMemory' {{config}})
   docker run --rm \
@@ -43,7 +43,7 @@ query-docker config:
 
 query-docker-internal config:
   #!/usr/bin/env bash
-  set -euo pipefail
+  set -exuo pipefail
 
   heap_size=$(yq e '.runtime.heapSize' {{config}})
   ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
