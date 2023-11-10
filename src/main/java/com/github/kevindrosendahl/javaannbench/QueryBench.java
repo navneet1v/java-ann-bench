@@ -49,7 +49,7 @@ public class QueryBench {
         try (var progress = ProgressBar.create("warmup", WARMUP_ITERATIONS * numQueries)) {
           pool.submit(
                   () -> {
-                    IntStream.range(0, TEST_ITERATIONS)
+                    IntStream.range(0, WARMUP_ITERATIONS)
                         .parallel()
                         .forEach(
                             i -> {
@@ -187,7 +187,8 @@ public class QueryBench {
     void write(Path reportsPath) throws Exception {
       var now = Instant.now().getEpochSecond();
       var path =
-          reportsPath.resolve(String.format("%s-%s-%s", now, spec.dataset(), indexDescription));
+          reportsPath.resolve(
+              String.format("%s-query-%s-%s", now, spec.dataset(), indexDescription));
       var data =
           new String[] {
             "v1",

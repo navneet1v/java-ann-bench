@@ -21,14 +21,18 @@ update-lucene:
 build-docker:
   docker build -t java-ann-bench .
 
-build dataset index:
-    @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--build --dataset={{dataset}} --index={{index}}"
-
-query dataset index k:
-    @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize="-Xms{{heap_size}}" --args="--query --k={{k}} --dataset={{dataset}} --index={{index}}"
-
-build-config config:
+build config:
   @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--build --config={{config}}"
 
-query-config config:
+query config:
+  heap_size := $(shell yq e '.runtime.heapSize' config.yaml)
   @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
+
+query-docker config:
+  system_memory := $(shell yq e '.runtime.systemMemory' {{config}})
+  docker run -it \
+    -v "$(pwd)/datasets":/java-ann-bench/datasets \
+    -v "$(pwd)/indexes":/java-ann-bench/indexes \
+    -v "$(pwd)/reports":/java-ann-bench/reports \
+    -m {{system_memory}} \
+    git pull && just init && just query {{config}}
