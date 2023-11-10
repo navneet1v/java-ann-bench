@@ -25,22 +25,25 @@ build config:
   @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--build --config={{config}}"
 
 query config:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
-  heap_size=$(yq e '.runtime.heapSize' {{config}})
-  @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
+  @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
 
 query-docker config:
   #!/usr/bin/env bash
   set -euo pipefail
 
   system_memory=$(yq e '.runtime.systemMemory' {{config}})
-  docker run -it -rm \
+  docker run --rm \
     -v "$(pwd)/configs":/java-ann-bench/configs \
     -v "$(pwd)/datasets":/java-ann-bench/datasets \
     -v "$(pwd)/indexes":/java-ann-bench/indexes \
     -v "$(pwd)/reports":/java-ann-bench/reports \
     -m ${system_memory} \
     java-ann-bench \
-    bash -c "git pull && just query {{config}}"
+    bash -c "git pull && just query-docker-internal {{config}}"
+
+query-docker-internal config:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  heap_size=$(yq e '.runtime.heapSize' {{config}})
+  @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"

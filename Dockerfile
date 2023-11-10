@@ -6,10 +6,12 @@ RUN apt-get update && apt-get install -y \
   wget \
   software-properties-common \
   gnupg \
-  git \
-  snapd
+  git
 
-RUN snap install yq
+
+# Install yq
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64 -O /usr/bin/yq &&\
+    chmod +x /usr/bin/yq
 
 # Add the Corretto APT repository
 RUN wget -O- https://apt.corretto.aws/corretto.key | gpg --dearmor > /usr/share/keyrings/corretto-archive-keyring.gpg && \
