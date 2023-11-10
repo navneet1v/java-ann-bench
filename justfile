@@ -34,5 +34,5 @@ query-docker config:
     -v "$(pwd)/datasets":/java-ann-bench/datasets \
     -v "$(pwd)/indexes":/java-ann-bench/indexes \
     -v "$(pwd)/reports":/java-ann-bench/reports \
-    -m {{system_memory}} \
-    git pull && just init && just query {{config}}
+    -m $system_memory \
+    bash -c "git pull && just init && just query {{config}}"
