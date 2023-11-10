@@ -31,6 +31,7 @@ query-docker config:
   #!/usr/bin/env bash
   set -exuo pipefail
 
+  sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'
   system_memory=$(yq e '.runtime.systemMemory' {{config}})
   docker run --rm \
     -v "$(pwd)/configs":/java-ann-bench/configs \

@@ -10,7 +10,6 @@ import io.github.jbellis.jvector.disk.CachingGraphIndex;
 import io.github.jbellis.jvector.disk.OnDiskGraphIndex;
 import io.github.jbellis.jvector.disk.RandomAccessReader;
 import io.github.jbellis.jvector.disk.ReaderSupplier;
-import io.github.jbellis.jvector.disk.SimpleMappedReaderSupplier;
 import io.github.jbellis.jvector.graph.GraphIndex;
 import io.github.jbellis.jvector.graph.GraphIndex.View;
 import io.github.jbellis.jvector.graph.GraphIndexBuilder;
@@ -347,7 +346,7 @@ public class JVectorIndex {
       var compressedVectorsFile =
           indexPath.resolve(String.format(COMPRESSED_VECTOR_FILE_FORMAT, pqFactor));
       if (compressedVectorsFile.toFile().exists()) {
-        try (var reader = new SimpleMappedReaderSupplier(compressedVectorsFile)) {
+        try (var reader = new MMapReaderSupplier(compressedVectorsFile)) {
           return Optional.of(CompressedVectors.load(reader.get(), 0));
         }
       }
