@@ -7,10 +7,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 public enum Datasets {
-  COHERE_WIKI_22_12_EN_786(
+  COHERE_WIKI_22_12_EN_768(
       "cohere-wiki-22-12-en-768-euclidean", 3495254, 10000, 768, SimilarityFunction.EUCLIDEAN),
-  COHERE_WIKI_ES_786(
-      "cohere-wiki-es-768-euclidean", 3495254, 10000, 768, SimilarityFunction.EUCLIDEAN),
+  COHERE_WIKI_ES_768(
+      "cohere-wiki-es-768-euclidean", 10124929, 10000, 768, SimilarityFunction.EUCLIDEAN),
   GIST_960("gist-960-euclidean", 1000000, 1000, 960, SimilarityFunction.EUCLIDEAN),
   GLOVE_100("glove-100-angular", 1183514, 10000, 100, SimilarityFunction.COSINE),
   GLOVE_25("glove-25-angular", 1183514, 10000, 25, SimilarityFunction.COSINE),
@@ -41,8 +41,8 @@ public enum Datasets {
       throws IOException, InterruptedException {
     var description =
         switch (name) {
-          case "cohere-wiki-22-12-en-768-euclidean" -> COHERE_WIKI_22_12_EN_786;
-          case "cohere-wiki-es-768-euclidean" -> COHERE_WIKI_ES_786;
+          case "cohere-wiki-22-12-en-768-euclidean" -> COHERE_WIKI_22_12_EN_768;
+          case "cohere-wiki-es-768-euclidean" -> COHERE_WIKI_ES_768;
           case "gist-960-euclidean" -> GIST_960;
           case "glove-100-angular" -> GLOVE_100;
           case "glove-25-angular" -> GLOVE_25;
