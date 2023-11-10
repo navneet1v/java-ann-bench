@@ -32,7 +32,7 @@ public class QueryBench {
 
       var systemInfo = new SystemInfo();
       var process = systemInfo.getOperatingSystem().getCurrentProcess();
-      var numQueries = dataset.train().size();
+      var numQueries = dataset.test().size();
       var queries = new ArrayList<float[]>(numQueries);
       int k = spec.k();
 
