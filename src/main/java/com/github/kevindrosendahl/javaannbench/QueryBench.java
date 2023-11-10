@@ -113,6 +113,7 @@ public class QueryBench {
     }
   }
 
+  // FIXME: record full fidelity results, as well as some quantiles
   private record Report(
       String indexDescription,
       QuerySpec spec,
