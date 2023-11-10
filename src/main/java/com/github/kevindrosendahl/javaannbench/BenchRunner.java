@@ -28,6 +28,10 @@ public class BenchRunner implements Runnable {
   public static void main(String[] args) {
     SLF4JBridgeHandler.removeHandlersForRootLogger();
     SLF4JBridgeHandler.install();
+    System.setProperty(
+        "jvector.physical_core_count",
+        Integer.toString(Runtime.getRuntime().availableProcessors()));
+
     CommandLine cmd = new CommandLine(new BenchRunner());
     int exitCode = cmd.execute(args);
     System.exit(exitCode);
