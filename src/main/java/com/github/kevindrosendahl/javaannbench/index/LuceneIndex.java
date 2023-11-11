@@ -68,6 +68,7 @@ public final class LuceneIndex {
       int maxConn,
       int beamWidth,
       float alpha,
+      int pqFactor,
       boolean scalarQuantization,
       int numThreads,
       boolean forceMerge)
@@ -154,6 +155,7 @@ public final class LuceneIndex {
                       vamanaParams.maxConn,
                       vamanaParams.beamWidth,
                       vamanaParams.alpha,
+                      vamanaParams.pqFactor,
                       vamanaParams.scalarQuantization
                           ? new VectorSandboxScalarQuantizedVectorsFormat()
                           : null,
@@ -267,10 +269,11 @@ public final class LuceneIndex {
             hnsw.numThreads,
             hnsw.forceMerge);
         case VamanaBuildParameters vamana -> String.format(
-            "maxConn:%s-beamWidth:%s-alpha:%s-scalarQuantization:%s-numThreads:%s-forceMerge:%s",
+            "maxConn:%s-beamWidth:%s-alpha:%s-pqFactor:%s-scalarQuantization:%s-numThreads:%s-forceMerge:%s",
             vamana.maxConn,
             vamana.beamWidth,
             vamana.alpha,
+            vamana.pqFactor,
             vamana.scalarQuantization,
             vamana.numThreads,
             vamana.forceMerge);

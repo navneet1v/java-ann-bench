@@ -21,6 +21,7 @@ import org.apache.commons.math3.stat.descriptive.SynchronizedDescriptiveStatisti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import oshi.SystemInfo;
+import oshi.software.os.OSThread;
 
 public class QueryBench {
 
@@ -141,18 +142,29 @@ public class QueryBench {
       DescriptiveStatistics majorFaults,
       Progress progress)
       throws Exception {
-    var thread = systemInfo.getOperatingSystem().getCurrentThread();
-    Preconditions.checkArgument(thread.updateAttributes(), "failed to update thread stats");
-    var startMinorFaults = thread.getMinorFaults();
-    var startMajorFaults = thread.getMajorFaults();
+    boolean collectThreadStats = systemInfo.getOperatingSystem().getFamily() != "macOS";
+
+    OSThread thread = null;
+    var startMinorFaults = 0L;
+    var startMajorFaults = 0L;
+    if (collectThreadStats) {
+      thread = systemInfo.getOperatingSystem().getCurrentThread();
+      Preconditions.checkArgument(thread.updateAttributes(), "failed to update thread stats");
+      startMinorFaults = thread.getMinorFaults();
+      startMajorFaults = thread.getMajorFaults();
+    }
 
     var start = Instant.now();
     var results = index.query(query, k);
     var end = Instant.now();
 
-    Preconditions.checkArgument(thread.updateAttributes(), "failed to update thread stats");
-    var endMinorFaults = thread.getMinorFaults();
-    var endMajorFaults = thread.getMajorFaults();
+    var endMinorFaults = 0L;
+    var endMajorFaults = 0L;
+    if (collectThreadStats) {
+      Preconditions.checkArgument(thread.updateAttributes(), "failed to update thread stats");
+      endMinorFaults = thread.getMinorFaults();
+      endMajorFaults = thread.getMajorFaults();
+    }
 
     var duration = Duration.between(start, end);
     executionDurations.addValue(duration.toNanos());
