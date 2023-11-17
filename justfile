@@ -19,7 +19,7 @@ update-lucene:
   cp submodules/lucene/lucene/core/build/libs/lucene-core-10.0.0-SNAPSHOT.jar libs/
 
 build-docker:
-  docker build -t java-ann-bench .
+  docker build --no-cache -t java-ann-bench .
 
 build config:
   @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--build --config={{config}}"
