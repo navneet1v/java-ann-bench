@@ -40,7 +40,7 @@ query-docker config:
     -v "$(pwd)/reports":/java-ann-bench/reports \
     -m ${system_memory} \
     java-ann-bench \
-    bash -c "git pull && just update-lucene && just query-docker-internal {{config}}"
+    bash -c "git pull && just query-docker-internal {{config}}"
 
 query-docker-internal config:
   #!/usr/bin/env bash
