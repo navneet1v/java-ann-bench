@@ -28,8 +28,8 @@ public class QueryBench {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(QueryBench.class);
 
-  private static final int WARMUP_ITERATIONS = 2;
-  private static final int TEST_ITERATIONS = 3;
+  private static final int WARMUP_ITERATIONS = 1;
+  private static final int TEST_ITERATIONS = 2;
 
   public static void test(QuerySpec spec, Path datasetsPath, Path indexesPath, Path reportsPath)
       throws Exception {
