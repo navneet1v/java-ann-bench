@@ -25,7 +25,12 @@ build config:
   @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--build --config={{config}}"
 
 query config:
-  @./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
+  #!/usr/bin/env bash
+  set -exuo pipefail
+
+  pq_rerank=$(yq e '.query.pqRerank' {{config}})
+  export VAMANA_PQ_RERANK=${pq_rerank}
+  ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
 
 query-docker config:
   #!/usr/bin/env bash

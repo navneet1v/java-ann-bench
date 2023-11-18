@@ -75,7 +75,7 @@ public final class LuceneIndex {
       boolean forceMerge)
       implements BuildParameters {}
 
-  public record QueryParameters(int numCandidates) {}
+  public record QueryParameters(int numCandidates, String pqRerank) {}
 
   private static final String VECTOR_FIELD = "vector";
   private static final String ID_FIELD = "id";

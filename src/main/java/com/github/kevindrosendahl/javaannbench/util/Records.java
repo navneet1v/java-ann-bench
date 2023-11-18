@@ -50,6 +50,10 @@ public class Records {
       return Boolean.parseBoolean(value);
     }
 
+    if (type == String.class) {
+      return value;
+    }
+
     throw new RuntimeException("unsupported class type: " + type);
   }
 }
