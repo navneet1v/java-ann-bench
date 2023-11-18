@@ -10,10 +10,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
+import jdk.jfr.Configuration;
+import jdk.jfr.Recording;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
@@ -88,6 +92,13 @@ public class QueryBench {
         var majorFaults = new SynchronizedDescriptiveStatistics();
 
         try (var progress = ProgressBar.create("testing", TEST_ITERATIONS * numQueries)) {
+          Recording recording = null;
+          if (spec.runtime().jfr()) {
+            Configuration config = Configuration.getConfiguration("profile");
+            recording = new Recording(config);
+            recording.start();
+          }
+
           if (concurrent) {
             pool.submit(
                     () -> {
@@ -143,6 +154,17 @@ public class QueryBench {
                     progress);
               }
             }
+          }
+
+          if (spec.runtime().jfr()) {
+            var formatter =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+                    .withZone(ZoneId.of("America/Los_Angeles"));
+            var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+
+            recording.dump(reportsPath.resolve(jfrFileName));
+            recording.stop();
+            recording.close();
           }
         }
 

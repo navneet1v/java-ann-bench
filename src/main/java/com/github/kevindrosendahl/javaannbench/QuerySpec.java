@@ -15,7 +15,8 @@ public record QuerySpec(
     int k,
     RuntimeConfiguration runtime) {
 
-  public record RuntimeConfiguration(String systemMemory, String heapSize, int queryThreads) {}
+  public record RuntimeConfiguration(
+      String systemMemory, String heapSize, int queryThreads, boolean jfr) {}
 
   public static QuerySpec load(Path path) throws Exception {
     return Yaml.fromYaml(path.toFile(), QuerySpec.class);

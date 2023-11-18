@@ -75,16 +75,6 @@ tasks.named<JavaExec>("run") {
         if (maxHeap != null) add(maxHeap)
     }
 
-    val enableJFR = project.findProperty("enableJFR")?.toString()?.toBoolean() ?: false
-    if (enableJFR) {
-        // Format the current date and time in Pacific Time
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").withZone(ZoneId.of("America/Los_Angeles"))
-        val jfrFileName = formatter.format(Instant.now()) + ".jfr"
-
-        dynamicJvmArgs.add("-XX:+FlightRecorder")
-        dynamicJvmArgs.add("-XX:StartFlightRecording=filename=reports/$jfrFileName")
-    }
-
     jvmArgs = defaultJvmArgs + dynamicJvmArgs
 }
 
