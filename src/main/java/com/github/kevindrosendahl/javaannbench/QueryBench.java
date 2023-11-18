@@ -91,14 +91,13 @@ public class QueryBench {
         var minorFaults = new SynchronizedDescriptiveStatistics();
         var majorFaults = new SynchronizedDescriptiveStatistics();
 
+        Recording recording = null;
+        if (spec.runtime().jfr()) {
+          Configuration config = Configuration.getConfiguration("profile");
+          recording = new Recording(config);
+          recording.start();
+        }
         try (var progress = ProgressBar.create("testing", TEST_ITERATIONS * numQueries)) {
-          Recording recording = null;
-          if (spec.runtime().jfr()) {
-            Configuration config = Configuration.getConfiguration("profile");
-            recording = new Recording(config);
-            recording.start();
-          }
-
           if (concurrent) {
             pool.submit(
                     () -> {
@@ -155,17 +154,19 @@ public class QueryBench {
               }
             }
           }
+        }
+        if (spec.runtime().jfr()) {
+          var formatter =
+              DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+                  .withZone(ZoneId.of("America/Los_Angeles"));
+          var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+          var jfrPath = reportsPath.resolve(jfrFileName);
 
-          if (spec.runtime().jfr()) {
-            var formatter =
-                DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
-                    .withZone(ZoneId.of("America/Los_Angeles"));
-            var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+          recording.dump(jfrPath);
+          recording.stop();
+          recording.close();
 
-            recording.dump(reportsPath.resolve(jfrFileName));
-            recording.stop();
-            recording.close();
-          }
+          LOGGER.info("wrote jfr recording to {}", jfrPath);
         }
 
         LOGGER.info("completed recall test for {}:", index.description());
