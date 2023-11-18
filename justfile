@@ -28,9 +28,10 @@ query config:
   #!/usr/bin/env bash
   set -exuo pipefail
 
+  jfr=$(yq e '.runtime.jfr' {{config}})
   pq_rerank=$(yq e '.query.pqRerank' {{config}})
   export VAMANA_PQ_RERANK=${pq_rerank}
-  ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
+  ./gradlew run --console=plain --quiet -PenableJFR="${jfr}" -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
 
 query-docker config:
   #!/usr/bin/env bash
