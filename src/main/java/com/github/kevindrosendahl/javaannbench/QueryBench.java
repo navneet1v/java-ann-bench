@@ -166,7 +166,7 @@ public class QueryBench {
           recording.stop();
           recording.close();
 
-          LOGGER.info("wrote jfr recording to {}", jfrPath);
+          LOGGER.info("wrote jfr recording {}", jfrFileName);
         }
 
         LOGGER.info("completed recall test for {}:", index.description());
