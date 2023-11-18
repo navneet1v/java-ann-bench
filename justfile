@@ -1,4 +1,4 @@
-heap_size := "10g"
+heap_size := "40g"
 
 init:
   git submodule init
