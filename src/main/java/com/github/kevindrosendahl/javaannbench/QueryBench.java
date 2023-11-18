@@ -38,6 +38,7 @@ public class QueryBench {
         Index.Querier.fromParameters(
             dataset, indexesPath, spec.provider(), spec.type(), spec.build(), spec.query())) {
 
+      var concurrent = spec.runtime().queryThreads() != 1;
       var systemInfo = new SystemInfo();
       var numQueries = dataset.test().size();
       var queries = new ArrayList<float[]>(numQueries);
@@ -49,26 +50,36 @@ public class QueryBench {
 
       try (var pool = new ForkJoinPool(spec.runtime().queryThreads())) {
         try (var progress = ProgressBar.create("warmup", WARMUP_ITERATIONS * numQueries)) {
-          pool.submit(
-                  () -> {
-                    IntStream.range(0, WARMUP_ITERATIONS)
-                        .parallel()
-                        .forEach(
-                            i -> {
-                              IntStream.range(0, numQueries)
-                                  .parallel()
-                                  .forEach(
-                                      j -> {
-                                        Exceptions.wrap(
-                                            () -> {
-                                              var query = queries.get(j);
-                                              index.query(query, k);
-                                              progress.inc();
-                                            });
-                                      });
-                            });
-                  })
-              .join();
+          if (concurrent) {
+            pool.submit(
+                    () -> {
+                      IntStream.range(0, WARMUP_ITERATIONS)
+                          .parallel()
+                          .forEach(
+                              i -> {
+                                IntStream.range(0, numQueries)
+                                    .parallel()
+                                    .forEach(
+                                        j -> {
+                                          Exceptions.wrap(
+                                              () -> {
+                                                var query = queries.get(j);
+                                                index.query(query, k);
+                                                progress.inc();
+                                              });
+                                        });
+                              });
+                    })
+                .join();
+          } else {
+            for (int i = 0; i < WARMUP_ITERATIONS; i++) {
+              for (int j = 0; j < numQueries; j++) {
+                var query = queries.get(j);
+                index.query(query, k);
+                progress.inc();
+              }
+            }
+          }
         }
 
         var recalls = new SynchronizedDescriptiveStatistics();
@@ -77,39 +88,62 @@ public class QueryBench {
         var majorFaults = new SynchronizedDescriptiveStatistics();
 
         try (var progress = ProgressBar.create("testing", TEST_ITERATIONS * numQueries)) {
-          pool.submit(
-                  () -> {
-                    IntStream.range(0, TEST_ITERATIONS)
-                        .parallel()
-                        .forEach(
-                            i -> {
-                              IntStream.range(0, numQueries)
-                                  .parallel()
-                                  .forEach(
-                                      j -> {
-                                        Exceptions.wrap(
-                                            () -> {
-                                              var query = queries.get(j);
-                                              var groundTruth = dataset.groundTruth().get(j);
-                                              runQuery(
-                                                  index,
-                                                  query,
-                                                  groundTruth,
-                                                  spec.k(),
-                                                  i,
-                                                  j,
-                                                  systemInfo,
-                                                  recalls,
-                                                  executionDurations,
-                                                  minorFaults,
-                                                  majorFaults,
-                                                  spec.runtime().queryThreads() != 1,
-                                                  progress);
-                                            });
-                                      });
-                            });
-                  })
-              .join();
+          if (concurrent) {
+            pool.submit(
+                    () -> {
+                      IntStream.range(0, TEST_ITERATIONS)
+                          .parallel()
+                          .forEach(
+                              i -> {
+                                IntStream.range(0, numQueries)
+                                    .parallel()
+                                    .forEach(
+                                        j -> {
+                                          Exceptions.wrap(
+                                              () -> {
+                                                var query = queries.get(j);
+                                                var groundTruth = dataset.groundTruth().get(j);
+                                                runQuery(
+                                                    index,
+                                                    query,
+                                                    groundTruth,
+                                                    spec.k(),
+                                                    i,
+                                                    j,
+                                                    systemInfo,
+                                                    recalls,
+                                                    executionDurations,
+                                                    minorFaults,
+                                                    majorFaults,
+                                                    concurrent,
+                                                    progress);
+                                              });
+                                        });
+                              });
+                    })
+                .join();
+          } else {
+            for (int i = 0; i < TEST_ITERATIONS; i++) {
+              for (int j = 0; j < numQueries; j++) {
+                var query = queries.get(j);
+                var groundTruth = dataset.groundTruth().get(j);
+                runQuery(
+                    index,
+                    query,
+                    groundTruth,
+                    spec.k(),
+                    i,
+                    j,
+                    systemInfo,
+                    recalls,
+                    executionDurations,
+                    minorFaults,
+                    majorFaults,
+                    concurrent,
+                    progress);
+              }
+            }
+          }
         }
 
         LOGGER.info("completed recall test for {}:", index.description());
