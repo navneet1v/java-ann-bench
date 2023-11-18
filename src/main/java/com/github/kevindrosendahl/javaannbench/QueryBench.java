@@ -21,6 +21,7 @@ import org.apache.commons.math3.stat.descriptive.SynchronizedDescriptiveStatisti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import oshi.SystemInfo;
+import oshi.software.os.OSProcess;
 import oshi.software.os.OSThread;
 
 public class QueryBench {
@@ -102,6 +103,7 @@ public class QueryBench {
                                                   executionDurations,
                                                   minorFaults,
                                                   majorFaults,
+                                                  spec.runtime().queryThreads() != 1,
                                                   progress);
                                             });
                                       });
@@ -140,18 +142,21 @@ public class QueryBench {
       DescriptiveStatistics executionDurations,
       DescriptiveStatistics minorFaults,
       DescriptiveStatistics majorFaults,
+      boolean concurrent,
       Progress progress)
       throws Exception {
     boolean collectThreadStats = systemInfo.getOperatingSystem().getFamily() != "macOS";
 
-    OSThread thread = null;
+    StatsCollector statsCollector =
+        (collectThreadStats && concurrent)
+            ? new ThreadStatsCollector(systemInfo)
+            : new ProcessStatsCollector(systemInfo);
     var startMinorFaults = 0L;
     var startMajorFaults = 0L;
     if (collectThreadStats) {
-      thread = systemInfo.getOperatingSystem().getCurrentThread();
-      Preconditions.checkArgument(thread.updateAttributes(), "failed to update thread stats");
-      startMinorFaults = thread.getMinorFaults();
-      startMajorFaults = thread.getMajorFaults();
+      Preconditions.checkArgument(statsCollector.update(), "failed to update stats");
+      startMinorFaults = statsCollector.minorFaults();
+      startMajorFaults = statsCollector.majorFaults();
     }
 
     var start = Instant.now();
@@ -161,9 +166,9 @@ public class QueryBench {
     var endMinorFaults = 0L;
     var endMajorFaults = 0L;
     if (collectThreadStats) {
-      Preconditions.checkArgument(thread.updateAttributes(), "failed to update thread stats");
-      endMinorFaults = thread.getMinorFaults();
-      endMajorFaults = thread.getMajorFaults();
+      Preconditions.checkArgument(statsCollector.update(), "failed to update thread stats");
+      endMinorFaults = statsCollector.minorFaults();
+      endMajorFaults = statsCollector.majorFaults();
     }
 
     var duration = Duration.between(start, end);
@@ -185,6 +190,62 @@ public class QueryBench {
     majorFaults.addValue(endMajorFaults - startMajorFaults);
 
     progress.inc();
+  }
+
+  private interface StatsCollector {
+    boolean update();
+
+    long minorFaults();
+
+    long majorFaults();
+  }
+
+  private static class ThreadStatsCollector implements StatsCollector {
+
+    private final OSThread thread;
+
+    public ThreadStatsCollector(SystemInfo info) {
+      this.thread = info.getOperatingSystem().getCurrentThread();
+    }
+
+    @Override
+    public boolean update() {
+      return thread.updateAttributes();
+    }
+
+    @Override
+    public long minorFaults() {
+      return thread.getMinorFaults();
+    }
+
+    @Override
+    public long majorFaults() {
+      return thread.getMajorFaults();
+    }
+  }
+
+  private static class ProcessStatsCollector implements StatsCollector {
+
+    private final OSProcess process;
+
+    public ProcessStatsCollector(SystemInfo info) {
+      this.process = info.getOperatingSystem().getCurrentProcess();
+    }
+
+    @Override
+    public boolean update() {
+      return process.updateAttributes();
+    }
+
+    @Override
+    public long minorFaults() {
+      return process.getMinorFaults();
+    }
+
+    @Override
+    public long majorFaults() {
+      return process.getMajorFaults();
+    }
   }
 
   // FIXME: record full fidelity results, as well as some quantiles
