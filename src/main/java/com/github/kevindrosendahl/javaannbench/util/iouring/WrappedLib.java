@@ -25,9 +25,9 @@ public class WrappedLib {
   private static final MemoryLayout WRAPPED_RESULT =
       structLayout(JAVA_LONG.withName("user_data"), JAVA_INT.withName("res"));
 
-  private static final VarHandle WRAPPED_RESULT_RES_HANDLE =
+  static final VarHandle WRAPPED_RESULT_RES_HANDLE =
       WRAPPED_RESULT.varHandle(PathElement.groupElement("res"));
-  private static final VarHandle WRAPPED_RESULT_USER_DATA_HANDLE =
+  static final VarHandle WRAPPED_RESULT_USER_DATA_HANDLE =
       WRAPPED_RESULT.varHandle(PathElement.groupElement("user_data"));
 
   private static final String INIT_RING = "wrapped_io_uring_init_ring";
@@ -99,6 +99,35 @@ public class WrappedLib {
   public static void main(String[] args) throws Exception {
     var workingDirectory = Path.of(System.getProperty("user.dir"));
     var gloveTestPath = workingDirectory.resolve("datasets/glove-100-angular/test.fvecs");
+    try (IoUring uring = IoUring.create(gloveTestPath, 8)) {
+      try (Arena arena = Arena.ofConfined()) {
+        long bufferSize = 100 * Float.BYTES;
+        MemorySegment buf1 = arena.allocate(bufferSize);
+        MemorySegment buf2 = arena.allocate(bufferSize);
+
+        uring
+            .prepare(buf1, (int) bufferSize, 0)
+            .thenRun(
+                () -> {
+                  System.out.println("finished read 0");
+                  System.out.println("buf = " + Arrays.toString(buf1.toArray(JAVA_FLOAT)));
+                });
+        uring
+            .prepare(buf2, (int) bufferSize, bufferSize * 13)
+            .thenRun(
+                () -> {
+                  System.out.println("finished read 1");
+                  System.out.println("buf = " + Arrays.toString(buf2.toArray(JAVA_FLOAT)));
+                });
+        uring.submit();
+        uring.awaitAll();
+      }
+    }
+  }
+
+  public static void oldMain(String[] args) throws Exception {
+    var workingDirectory = Path.of(System.getProperty("user.dir"));
+    var gloveTestPath = workingDirectory.resolve("datasets/glove-100-angular/test.fvecs");
 
     try (Arena arena = Arena.ofConfined()) {
       MemorySegment pathname = arena.allocateUtf8String(gloveTestPath.toString());
@@ -133,7 +162,7 @@ public class WrappedLib {
     }
   }
 
-  private static MemorySegment initRing(MemorySegment path, int entries) {
+  static MemorySegment initRing(MemorySegment path, int entries) {
     MemorySegment uninterpreted;
     try {
       uninterpreted = (MemorySegment) INIT_RING_HANDLE.invokeExact(path, entries);
@@ -148,7 +177,7 @@ public class WrappedLib {
     return uninterpreted.reinterpret(WRAPPED_IO_URING.byteSize());
   }
 
-  private static void prepRead(
+  static void prepRead(
       MemorySegment ring, long userData, MemorySegment buf, int nbytes, long offset) {
     try {
       PREP_READ_HANDLE.invokeExact(ring, userData, buf, nbytes, offset);
@@ -157,7 +186,7 @@ public class WrappedLib {
     }
   }
 
-  private static void submitRequests(MemorySegment ring) {
+  static void submitRequests(MemorySegment ring) {
     try {
       SUBMIT_REQUESTS_HANDLE.invokeExact(ring);
     } catch (Throwable t) {
@@ -165,7 +194,7 @@ public class WrappedLib {
     }
   }
 
-  private static MemorySegment waitForRequest(MemorySegment ring) {
+  static MemorySegment waitForRequest(MemorySegment ring) {
     MemorySegment uninterpreted;
     try {
       uninterpreted = (MemorySegment) WAIT_FOR_REQUESTS_HANDLE.invokeExact(ring);
@@ -180,7 +209,7 @@ public class WrappedLib {
     return uninterpreted.reinterpret(WRAPPED_RESULT.byteSize());
   }
 
-  private static void completeRequest(MemorySegment ring, MemorySegment result) {
+  static void completeRequest(MemorySegment ring, MemorySegment result) {
     try {
       COMPLETE_REQUEST_HANDLE.invokeExact(ring, result);
     } catch (Throwable t) {
@@ -188,7 +217,7 @@ public class WrappedLib {
     }
   }
 
-  private static void closeRing(MemorySegment ring) {
+  static void closeRing(MemorySegment ring) {
     try {
       CLOSE_RING_HANDLE.invokeExact(ring);
     } catch (Throwable t) {
