@@ -11,9 +11,9 @@ import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class IoUring implements Closeable {
@@ -124,7 +124,7 @@ public class IoUring implements Closeable {
 
   private final MemorySegment ring;
   private final AtomicLong counter = new AtomicLong();
-  private final Map<Long, CompletableFuture<Void>> futures = new HashMap<>();
+  private final Map<Long, CompletableFuture<Void>> futures = new ConcurrentHashMap<>();
 
   private IoUring(MemorySegment ring) {
     this.ring = ring;
