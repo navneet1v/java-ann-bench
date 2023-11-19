@@ -185,7 +185,7 @@ public class IoUring implements Closeable {
 
     CompletableFuture<Void> future = futures.remove(id);
     if (future == null) {
-      futures.remove(1).complete(null);
+      futures.remove(1L).complete(null);
       throw new RuntimeException("couldn't find future for id " + id);
     }
 
