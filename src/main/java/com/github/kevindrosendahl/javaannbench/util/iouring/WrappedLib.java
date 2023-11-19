@@ -51,60 +51,71 @@ public class WrappedLib {
   private static final MethodHandle CLOSE_RING_HANDLE;
 
   static {
-    Arena global = Arena.global();
-    SymbolLookup uringLookup =
-        SymbolLookup.libraryLookup(
-            Path.of(System.getProperty("user.dir")).resolve("src/main/c/libwrappeduring.so"),
-            global);
-    var linker = Linker.nativeLinker();
+    boolean isLinux = System.getProperty("os.name").toLowerCase().contains("linux");
+    if (isLinux) {
+      Arena global = Arena.global();
+      SymbolLookup uringLookup =
+          SymbolLookup.libraryLookup(
+              Path.of(System.getProperty("user.dir")).resolve("src/main/c/libwrappeduring.so"),
+              global);
+      var linker = Linker.nativeLinker();
 
-    INIT_RING_FROM_PATH_HANDLE =
-        linker.downcallHandle(
-            uringLookup.find(INIT_RING_FROM_PATH).get(),
-            FunctionDescriptor.of(
-                ADDRESS, /* returns *wrapped_io_uring */
-                ADDRESS, /* char *path */
-                JAVA_INT /* unsigned entries */));
+      INIT_RING_FROM_PATH_HANDLE =
+          linker.downcallHandle(
+              uringLookup.find(INIT_RING_FROM_PATH).get(),
+              FunctionDescriptor.of(
+                  ADDRESS, /* returns *wrapped_io_uring */
+                  ADDRESS, /* char *path */
+                  JAVA_INT /* unsigned entries */));
 
-    INIT_RING_FROM_FD_HANDLE =
-        linker.downcallHandle(
-            uringLookup.find(INIT_RING_FROM_FD).get(),
-            FunctionDescriptor.of(
-                ADDRESS, /* returns *wrapped_io_uring */
-                JAVA_INT, /* int fd */
-                JAVA_INT /* unsigned entries */));
+      INIT_RING_FROM_FD_HANDLE =
+          linker.downcallHandle(
+              uringLookup.find(INIT_RING_FROM_FD).get(),
+              FunctionDescriptor.of(
+                  ADDRESS, /* returns *wrapped_io_uring */
+                  JAVA_INT, /* int fd */
+                  JAVA_INT /* unsigned entries */));
 
-    PREP_READ_HANDLE =
-        linker.downcallHandle(
-            uringLookup.find(PREP_READ).get(),
-            FunctionDescriptor.ofVoid(
-                ADDRESS, /* wrapped_io_uring *ring */
-                JAVA_LONG, /* uint64_t user_data */
-                ADDRESS, /* void *buf */
-                JAVA_INT, /* unsigned nbytes */
-                JAVA_LONG /* off_t offset */));
+      PREP_READ_HANDLE =
+          linker.downcallHandle(
+              uringLookup.find(PREP_READ).get(),
+              FunctionDescriptor.ofVoid(
+                  ADDRESS, /* wrapped_io_uring *ring */
+                  JAVA_LONG, /* uint64_t user_data */
+                  ADDRESS, /* void *buf */
+                  JAVA_INT, /* unsigned nbytes */
+                  JAVA_LONG /* off_t offset */));
 
-    SUBMIT_REQUESTS_HANDLE =
-        linker.downcallHandle(
-            uringLookup.find(SUBMIT_REQUESTS).get(),
-            FunctionDescriptor.ofVoid(ADDRESS /* wrapped_io_uring *ring */));
+      SUBMIT_REQUESTS_HANDLE =
+          linker.downcallHandle(
+              uringLookup.find(SUBMIT_REQUESTS).get(),
+              FunctionDescriptor.ofVoid(ADDRESS /* wrapped_io_uring *ring */));
 
-    WAIT_FOR_REQUESTS_HANDLE =
-        linker.downcallHandle(
-            uringLookup.find(WAIT_FOR_REQUESTS).get(),
-            FunctionDescriptor.of(
-                ADDRESS, /* returns wrapped_result* */ ADDRESS /* wrapped_io_uring *ring */));
+      WAIT_FOR_REQUESTS_HANDLE =
+          linker.downcallHandle(
+              uringLookup.find(WAIT_FOR_REQUESTS).get(),
+              FunctionDescriptor.of(
+                  ADDRESS, /* returns wrapped_result* */ ADDRESS /* wrapped_io_uring *ring */));
 
-    COMPLETE_REQUEST_HANDLE =
-        linker.downcallHandle(
-            uringLookup.find(COMPLETE_REQUEST).get(),
-            FunctionDescriptor.ofVoid(
-                ADDRESS, /* wrapped_io_uring *ring */ ADDRESS /* wrapped_result *result */));
+      COMPLETE_REQUEST_HANDLE =
+          linker.downcallHandle(
+              uringLookup.find(COMPLETE_REQUEST).get(),
+              FunctionDescriptor.ofVoid(
+                  ADDRESS, /* wrapped_io_uring *ring */ ADDRESS /* wrapped_result *result */));
 
-    CLOSE_RING_HANDLE =
-        linker.downcallHandle(
-            uringLookup.find(CLOSE_RING).get(),
-            FunctionDescriptor.ofVoid(ADDRESS /* wrapped_io_uring *ring */));
+      CLOSE_RING_HANDLE =
+          linker.downcallHandle(
+              uringLookup.find(CLOSE_RING).get(),
+              FunctionDescriptor.ofVoid(ADDRESS /* wrapped_io_uring *ring */));
+    } else {
+      INIT_RING_FROM_PATH_HANDLE = null;
+      INIT_RING_FROM_FD_HANDLE = null;
+      PREP_READ_HANDLE = null;
+      SUBMIT_REQUESTS_HANDLE = null;
+      WAIT_FOR_REQUESTS_HANDLE = null;
+      COMPLETE_REQUEST_HANDLE = null;
+      CLOSE_RING_HANDLE = null;
+    }
   }
 
   public static void main(String[] args) throws Exception {

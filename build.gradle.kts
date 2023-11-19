@@ -83,7 +83,7 @@ tasks.register<JavaExec>("runIoUring") {
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs = defaultJvmArgs + mutableListOf<String>().apply {
         add("-Djava.library.path=/usr/lib/aarch64-linux-gnu")
-        add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005")
+//        add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005")
     }
 }
 
