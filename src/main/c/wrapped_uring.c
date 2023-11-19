@@ -6,7 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define FILE_PATH "/java-ann-bench/datasets/glove-100-angular/test.fvecs"
+#define FILE_PATH "/home/ubuntu/java-ann-bench/datasets/glove-100-angular/test.fvecs"
 #define BUFFER_SIZE 400
 
 int main() {
@@ -16,8 +16,8 @@ int main() {
   char *buf1 = malloc(BUFFER_SIZE);
   char *buf2 = malloc(BUFFER_SIZE);
 
-  wrapped_io_uring_prep_read(ring, 0, buf1, BUFFER_SIZE, 0);
-  wrapped_io_uring_prep_read(ring, 1, buf2, BUFFER_SIZE, BUFFER_SIZE * 13);
+  wrapped_io_uring_prep_read(ring, 50, buf1, BUFFER_SIZE, 0);
+  wrapped_io_uring_prep_read(ring, 113, buf2, BUFFER_SIZE, BUFFER_SIZE * 13);
 
   wrapped_io_uring_submit_requests(ring);
 
@@ -93,7 +93,7 @@ void wrapped_io_uring_prep_read(struct wrapped_io_uring *ring,
   printf("In C: wrapped_io_uring_prep_read: user_data = %lu\n", user_data);
   fflush(stdout);
   struct io_uring_sqe *sqe = io_uring_get_sqe(ring->wrapped);
-  io_uring_sqe_set_data(sqe, (void *)user_data);
+  io_uring_sqe_set_data64(sqe, user_data);
   printf("In C: wrapped_io_uring_prep_read: sqe->user_data = %llu\n", sqe->user_data);
   fflush(stdout);
   io_uring_prep_read(sqe, ring->fd, buf, nbytes, offset);
@@ -119,12 +119,12 @@ wrapped_io_uring_wait_for_request(struct wrapped_io_uring *ring) {
     return NULL;
   }
   result->res = ring->cqe->res;
-  result->user_data = (uint64_t)io_uring_cqe_get_data(ring->cqe);
+  result->user_data = io_uring_cqe_get_data64(ring->cqe);
   printf("In C: wrapped_io_uring_wait_for_request: user_data = %lu\n", result->user_data);
   fflush(stdout);
   printf("In C: wrapped_io_uring_wait_for_request: user_data ptr = %p\n", io_uring_cqe_get_data(ring->cqe));
   fflush(stdout);
-  printf("In C: wrapped_io_uring_wait_for_request: user_data ptr deref = %lu\n", (uint64_t)io_uring_cqe_get_data(ring->cqe));
+  printf("In C: wrapped_io_uring_wait_for_request: user_data ptr deref = %lu\n", io_uring_cqe_get_data64(ring->cqe));
   fflush(stdout);
   return result;
 }
