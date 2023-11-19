@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y \
   wget \
   software-properties-common \
   gnupg \
-  git
+  git \
+  liburing2
 
 
 # Install yq
