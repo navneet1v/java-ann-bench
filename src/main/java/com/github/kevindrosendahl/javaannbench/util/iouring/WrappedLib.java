@@ -117,7 +117,7 @@ public class WrappedLib {
         try (Arena arena = Arena.ofConfined()) {
           long bufferSize = 100 * Float.BYTES;
           MemorySegment buf1 = arena.allocate(bufferSize);
-          MemorySegment buf2 = arena.allocate(bufferSize);
+          MemorySegment buf2 = arena.allocate(bufferSize / 2);
 
           uring
               .prepare(buf1, (int) bufferSize, 0)
@@ -127,7 +127,7 @@ public class WrappedLib {
                     System.out.println("buf = " + Arrays.toString(buf1.toArray(JAVA_FLOAT)));
                   });
           uring
-              .prepare(buf2, (int) bufferSize, bufferSize * 13)
+              .prepare(buf2, (int) bufferSize / 2, bufferSize * 13)
               .thenRun(
                   () -> {
                     System.out.println("finished read 1");
