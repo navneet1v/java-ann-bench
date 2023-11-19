@@ -133,6 +133,7 @@ public class WrappedLib {
                     System.out.println("finished read 1");
                     System.out.println("buf = " + Arrays.toString(buf2.toArray(JAVA_FLOAT)));
                   });
+
           uring.submit();
           uring.awaitAll();
           System.out.println("done waiting");

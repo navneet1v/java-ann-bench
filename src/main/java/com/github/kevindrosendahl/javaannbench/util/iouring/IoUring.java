@@ -67,10 +67,8 @@ public class IoUring implements Closeable {
     private static int open(Path path, int flags) {
       int result;
       try (Arena arena = Arena.ofConfined()) {
-        System.out.println("path = " + path);
         MemorySegment pathname = arena.allocateUtf8String(path.toString());
         result = (int) OPEN.invokeExact(pathname, flags);
-        System.out.println("result = " + result);
       } catch (Throwable t) {
         throw new RuntimeException("caught error invoking open()", t);
       }
@@ -153,8 +151,6 @@ public class IoUring implements Closeable {
     WrappedLib.prepRead(ring, id, buffer, numbytes, offset);
     CompletableFuture<Void> future = new CompletableFuture<>();
     futures.put(id, future);
-    System.out.println("id = " + id);
-    System.out.println("futures.size() = " + futures.size());
     return future;
   }
 
@@ -172,20 +168,13 @@ public class IoUring implements Closeable {
   }
 
   public boolean await() {
-    System.out.println("waiting for request");
     MemorySegment result = WrappedLib.waitForRequest(ring);
-    System.out.println("got result");
     int res = (int) WrappedLib.WRAPPED_RESULT_RES_HANDLE.get(result);
     long id = (long) WrappedLib.WRAPPED_RESULT_USER_DATA_HANDLE.get(result);
-    System.out.println("res = " + res);
-    System.out.println("id = " + id);
-    System.out.println("completing request");
     WrappedLib.completeRequest(ring, result);
-    System.out.println("done completing");
 
     CompletableFuture<Void> future = futures.remove(id);
     if (future == null) {
-      futures.remove(1L).complete(null);
       throw new RuntimeException("couldn't find future for id " + id);
     }
 
@@ -195,8 +184,6 @@ public class IoUring implements Closeable {
       future.complete(null);
     }
 
-    System.out.println("futures.size() = " + futures.size());
-    System.out.println("futures.isEmpty() = " + futures.isEmpty());
     return futures.isEmpty();
   }
 
