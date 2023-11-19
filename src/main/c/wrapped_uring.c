@@ -98,6 +98,7 @@ void wrapped_io_uring_prep_read(struct wrapped_io_uring *ring,
 }
 
 void wrapped_io_uring_submit_requests(struct wrapped_io_uring *ring) {
+  printf("In C: submitting requests\n");
   io_uring_submit(ring->wrapped);
 }
 
@@ -124,6 +125,7 @@ wrapped_io_uring_wait_for_request(struct wrapped_io_uring *ring) {
 
 void wrapped_io_uring_complete_request(struct wrapped_io_uring *ring,
                                        struct wrapped_result *result) {
+  printf("In C: completing result = %lu\n", (uint64_t)io_uring_cqe_get_data(ring->cqe));
   io_uring_cqe_seen(ring->wrapped, ring->cqe);
   free(result);
 }
