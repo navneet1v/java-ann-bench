@@ -1,4 +1,4 @@
-package com.github.kevindrosendahl.javaannbench.util;
+package com.github.kevindrosendahl.javaannbench.util.iouring;
 
 import static java.lang.foreign.MemoryLayout.*;
 import static java.lang.foreign.ValueLayout.ADDRESS;
@@ -18,7 +18,7 @@ import java.lang.invoke.VarHandle;
 import java.nio.file.Path;
 import java.util.Arrays;
 
-public class IOUring {
+public class WrappedLib {
   private static final MemoryLayout WRAPPED_IO_URING =
       structLayout(ADDRESS.withName("wrapped"), ADDRESS.withName("cqe"), JAVA_INT.withName("fd"));
 

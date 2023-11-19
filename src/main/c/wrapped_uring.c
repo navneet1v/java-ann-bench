@@ -81,7 +81,7 @@ void wrapped_io_uring_prep_read(struct wrapped_io_uring *ring,
                                 uint64_t user_data, void *buf, unsigned nbytes,
                                 off_t offset) {
   struct io_uring_sqe *sqe = io_uring_get_sqe(ring->wrapped);
-  io_uring_sqe_set_data(sqe, &user_data);
+  io_uring_sqe_set_data(sqe, (void *)user_data);
   io_uring_prep_read(sqe, ring->fd, buf, nbytes, offset);
 }
 
@@ -97,9 +97,8 @@ wrapped_io_uring_wait_for_request(struct wrapped_io_uring *ring) {
     perror("Failed to allocate memory for wrapped_result");
     return NULL;
   }
-
   result->res = ring->cqe->res;
-  result->user_data = *((uint64_t *)io_uring_cqe_get_data(ring->cqe));
+  result->user_data = (uint64_t)io_uring_cqe_get_data(ring->cqe);
   return result;
 }
 

@@ -79,7 +79,7 @@ tasks.named<JavaExec>("run") {
 }
 
 tasks.register<JavaExec>("runIoUring") {
-    mainClass.set("com.github.kevindrosendahl.javaannbench.util.IOUring")
+    mainClass.set("com.github.kevindrosendahl.javaannbench.util.iouring.WrappedLib")
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs = defaultJvmArgs + mutableListOf<String>().apply {
         add("-Djava.library.path=/usr/lib/aarch64-linux-gnu")
