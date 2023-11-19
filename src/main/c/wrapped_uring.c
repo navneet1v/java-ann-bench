@@ -119,7 +119,7 @@ void wrapped_io_uring_complete_request(struct wrapped_io_uring *ring,
 }
 
 void wrapped_io_uring_close_ring(struct wrapped_io_uring *ring) {
-  close(ring->fd);
+//  close(ring->fd);
   io_uring_queue_exit(ring->wrapped);
   free(ring);
 }
