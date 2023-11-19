@@ -149,7 +149,7 @@ public class WrappedLib {
     }
 
     if (uninterpreted == null) {
-      throw new RuntimeException("ring is full");
+      throw new RuntimeException("ring could not be created");
     }
 
     return uninterpreted.reinterpret(WRAPPED_IO_URING.byteSize());
@@ -164,7 +164,7 @@ public class WrappedLib {
     }
 
     if (uninterpreted == null) {
-      throw new RuntimeException("ring is full");
+      throw new RuntimeException("ring could not be created");
     }
 
     return uninterpreted.reinterpret(WRAPPED_IO_URING.byteSize());
