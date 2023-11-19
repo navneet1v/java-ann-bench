@@ -50,3 +50,5 @@ config.yml
 
 ### dependencies ###
 libs
+lib
+include
