@@ -180,7 +180,6 @@ public class IoUring implements Closeable {
     System.out.println("res = " + res);
     System.out.println("id = " + id);
     System.out.println("completing request");
-    WrappedLib.completeRequest(ring, result);
     System.out.println("done completing");
 
     CompletableFuture<Void> future = futures.remove(id);
@@ -191,8 +190,10 @@ public class IoUring implements Closeable {
 
     if (res < 0) {
       future.completeExceptionally(new IOException("error reading file, errno: " + res));
+      WrappedLib.completeRequest(ring, result);
     } else {
       future.complete(null);
+      WrappedLib.completeRequest(ring, result);
     }
 
     System.out.println("futures.size() = " + futures.size());
