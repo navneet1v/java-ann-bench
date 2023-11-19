@@ -78,7 +78,11 @@ public class IOUring {
               JAVA_INT.withName("sqe_head"), // unsigned sqe_head
               JAVA_INT.withName("sqe_tail"), // unsigned sqe_tail
               JAVA_LONG.withName("ring_sz"), // size_t ring_sz
-              ADDRESS.withName("ring_ptr") // void *ring_ptr
+              ADDRESS.withName("ring_ptr"), // void *ring_ptr
+              JAVA_INT.withName("ring_mask"), // unsigned ring_mask
+              JAVA_INT.withName("ring_entries"), // unsigned ring_entries
+              JAVA_INT.withName("pad[0]"), // unsigned pad[0]
+              JAVA_INT.withName("pad[1]") // unsigned pad[1]
               )
           .withName("io_uring_sq");
 
@@ -88,10 +92,15 @@ public class IOUring {
               ADDRESS.withName("ktail"), // unsigned *ktail
               ADDRESS.withName("kring_mask"), // unsigned *kring_mask
               ADDRESS.withName("kring_entries"), // unsigned *kring_entries
+              ADDRESS.withName("kflags"), // unsigned *kflags
               ADDRESS.withName("koverflow"), // unsigned *koverflow
               ADDRESS.withName("cqes"), // struct io_uring_cqe *cqes
               JAVA_LONG.withName("ring_sz"), // size_t ring_sz
-              ADDRESS.withName("ring_ptr") // void *ring_ptr
+              ADDRESS.withName("ring_ptr"), // void *ring_ptr
+              JAVA_INT.withName("ring_mask"), // unsigned ring_mask
+              JAVA_INT.withName("ring_entries"), // unsigned ring_entries
+              JAVA_INT.withName("pad[0]"), // unsigned pad[0]
+              JAVA_INT.withName("pad[1]") // unsigned pad[1]
               )
           .withName("io_uring_cq");
 
@@ -100,7 +109,14 @@ public class IOUring {
               IO_URING_SQ_LAYOUT.withName("sq"), // struct io_uring_sq sq
               IO_URING_CQ_LAYOUT.withName("cq"), // struct io_uring_cq cq
               JAVA_INT.withName("flags"), // unsigned flags
-              JAVA_INT.withName("ring_fd") // int ring_fd
+              JAVA_INT.withName("ring_fd"), // int ring_fd
+              JAVA_INT.withName("features"), // unsigned features
+              JAVA_INT.withName("enter_ring_fd"), // int enter_ring_fd
+              JAVA_BYTE.withName("int_flags"), // __u8 int_flags
+              JAVA_BYTE.withName("pad[0]"), // __u8 pad[0]
+              JAVA_BYTE.withName("pad[1]"), // __u8 pad[1]
+              JAVA_BYTE.withName("pad[2]"), // __u8 pad[2]
+              JAVA_INT.withName("pad2") // __u8 pad2
               )
           .withName("io_uring");
 
@@ -136,7 +152,8 @@ public class IOUring {
 
   static {
     Arena global = Arena.global();
-    SymbolLookup uringLookup = SymbolLookup.libraryLookup("liburing", global);
+    SymbolLookup uringLookup =
+        SymbolLookup.libraryLookup(Path.of("/usr/lib/liburing-ffi.so.2"), global);
     var linker = Linker.nativeLinker();
     var stdlib = linker.defaultLookup();
 
@@ -285,7 +302,7 @@ public class IOUring {
   private static void queueInit(int entries, MemorySegment ring, int flags) {
     int result;
     try {
-      result = (int) IO_URING_QUEUE_INIT.invokeExact(entries, ring, 0);
+      result = (int) IO_URING_QUEUE_INIT.invokeExact(entries, ring, flags);
     } catch (Throwable t) {
       throw new RuntimeException(invokeErrorString(IO_URING_QUEUE_INIT_NAME));
     }

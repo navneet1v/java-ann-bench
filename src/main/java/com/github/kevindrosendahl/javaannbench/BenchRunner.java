@@ -20,9 +20,7 @@ public class BenchRunner implements Runnable {
   @Option(names = {"-q", "--query"})
   private boolean query;
 
-  @Option(
-      names = {"-c", "--config"},
-      required = true)
+  @Option(names = {"-c", "--config"})
   private String config;
 
   public static void main(String[] args) {

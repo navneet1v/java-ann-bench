@@ -78,6 +78,15 @@ tasks.named<JavaExec>("run") {
     jvmArgs = defaultJvmArgs + dynamicJvmArgs
 }
 
+tasks.register<JavaExec>("runIoUring") {
+    mainClass.set("com.github.kevindrosendahl.javaannbench.util.IOUring")
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs = defaultJvmArgs + mutableListOf<String>().apply {
+        add("-Djava.library.path=/usr/lib/aarch64-linux-gnu")
+        add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
 }

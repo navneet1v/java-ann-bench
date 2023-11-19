@@ -55,3 +55,7 @@ query-docker-internal config:
   export VAMANA_PQ_RERANK=${pq_rerank}
   heap_size=$(yq e '.runtime.heapSize' {{config}})
   ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
+
+
+iouring:
+  @./gradlew runIoUring
