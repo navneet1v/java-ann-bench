@@ -176,6 +176,8 @@ public class IoUring implements Closeable {
     System.out.println("got result");
     int res = (int) WrappedLib.WRAPPED_RESULT_RES_HANDLE.get(result);
     long id = (long) WrappedLib.WRAPPED_RESULT_USER_DATA_HANDLE.get(result);
+    System.out.println("res = " + res);
+    System.out.println("id = " + id);
     System.out.println("completing request");
     WrappedLib.completeRequest(ring, result);
     System.out.println("done completing");
