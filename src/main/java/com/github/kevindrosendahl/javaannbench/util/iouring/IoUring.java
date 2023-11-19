@@ -66,8 +66,10 @@ public class IoUring implements Closeable {
     private static int open(Path path, int flags) {
       int result;
       try (Arena arena = Arena.ofConfined()) {
+        System.out.println("path = " + path);
         MemorySegment pathname = arena.allocateUtf8String(path.toString());
         result = (int) OPEN.invokeExact(pathname, flags);
+        System.out.println("result = " + result);
       } catch (Throwable t) {
         throw new RuntimeException("caught error invoking open()", t);
       }
