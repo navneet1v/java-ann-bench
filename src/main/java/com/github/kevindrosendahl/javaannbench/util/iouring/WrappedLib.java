@@ -54,7 +54,8 @@ public class WrappedLib {
     Arena global = Arena.global();
     SymbolLookup uringLookup =
         SymbolLookup.libraryLookup(
-            Path.of("/java-ann-bench/src/main/c/libwrappeduring.so"), global);
+            Path.of(System.getProperty("user.dir")).resolve("src/main/c/libwrappeduring.so"),
+            global);
     var linker = Linker.nativeLinker();
 
     INIT_RING_FROM_PATH_HANDLE =
