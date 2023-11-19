@@ -110,6 +110,7 @@ public class WrappedLib {
   public static void main(String[] args) throws Exception {
     var workingDirectory = Path.of(System.getProperty("user.dir"));
     var gloveTestPath = workingDirectory.resolve("datasets/glove-100-angular/test.fvecs");
+    System.out.println("gloveTestPath = " + gloveTestPath);
 
     try (IoUring.FileFactory factory = IoUring.factory(gloveTestPath)) {
       try (IoUring uring = factory.create(8)) {
