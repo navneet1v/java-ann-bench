@@ -43,6 +43,7 @@ query-docker config:
     -v "$(pwd)/datasets":/java-ann-bench/datasets \
     -v "$(pwd)/indexes":/java-ann-bench/indexes \
     -v "$(pwd)/reports":/java-ann-bench/reports \
+    -v "$(pwd)/src":/java-ann-bench/src \
     -m ${system_memory} \
     java-ann-bench \
     bash -c "git pull && just update-lucene && just query-docker-internal {{config}}"
