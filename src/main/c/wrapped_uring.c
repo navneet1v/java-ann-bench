@@ -93,6 +93,7 @@ void wrapped_io_uring_prep_read(struct wrapped_io_uring *ring,
   printf("In C: wrapped_io_uring_prep_read: user_data = %lu\n", user_data);
   struct io_uring_sqe *sqe = io_uring_get_sqe(ring->wrapped);
   io_uring_sqe_set_data(sqe, (void *)user_data);
+  printf("In C: wrapped_io_uring_prep_read: sqe->user_data = %llu\n", sqe->user_data);
   io_uring_prep_read(sqe, ring->fd, buf, nbytes, offset);
 }
 
