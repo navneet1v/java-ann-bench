@@ -1,4 +1,5 @@
 #include "wrapped_uring.h"
+#include <fcntl.h>
 #include <liburing.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
   software-properties-common \
   gnupg \
   git \
+  liburing-dev \
   build-essential \
   clang-tidy \
   clang-format
@@ -38,12 +39,5 @@ ENV JAVA_HOME /usr/lib/jvm/java-21-amazon-corretto
 
 # Verify installations
 RUN java -version && just --version
-
-RUN git clone https://github.com/axboe/liburing && \
-    cd liburing && \
-    git checkout 298c083d75ecde5a8833366167b3b6abff0c8d39 && \
-    ./configure --cc=gcc --cxx=g++ && \
-    make -j$(nproc) && \
-    make install
 
 CMD ["/bin/bash"]
