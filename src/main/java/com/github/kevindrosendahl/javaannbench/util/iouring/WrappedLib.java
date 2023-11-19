@@ -6,7 +6,6 @@ import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
 
-import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
@@ -30,8 +29,11 @@ public class WrappedLib {
   static final VarHandle WRAPPED_RESULT_USER_DATA_HANDLE =
       WRAPPED_RESULT.varHandle(PathElement.groupElement("user_data"));
 
-  private static final String INIT_RING = "wrapped_io_uring_init_ring";
-  private static final MethodHandle INIT_RING_HANDLE;
+  private static final String INIT_RING_FROM_PATH = "wrapped_io_uring_init_from_path";
+  private static final MethodHandle INIT_RING_FROM_PATH_HANDLE;
+
+  private static final String INIT_RING_FROM_FD = "wrapped_io_uring_init_from_fd";
+  private static final MethodHandle INIT_RING_FROM_FD_HANDLE;
 
   private static final String PREP_READ = "wrapped_io_uring_prep_read";
   private static final MethodHandle PREP_READ_HANDLE;
@@ -55,12 +57,20 @@ public class WrappedLib {
             Path.of("/java-ann-bench/src/main/c/libwrappeduring.so"), global);
     var linker = Linker.nativeLinker();
 
-    INIT_RING_HANDLE =
+    INIT_RING_FROM_PATH_HANDLE =
         linker.downcallHandle(
-            uringLookup.find(INIT_RING).get(),
+            uringLookup.find(INIT_RING_FROM_PATH).get(),
             FunctionDescriptor.of(
                 ADDRESS, /* returns *wrapped_io_uring */
                 ADDRESS, /* char *path */
+                JAVA_INT /* unsigned entries */));
+
+    INIT_RING_FROM_FD_HANDLE =
+        linker.downcallHandle(
+            uringLookup.find(INIT_RING_FROM_PATH).get(),
+            FunctionDescriptor.of(
+                ADDRESS, /* returns *wrapped_io_uring */
+                JAVA_INT, /* int fd */
                 JAVA_INT /* unsigned entries */));
 
     PREP_READ_HANDLE =
@@ -99,75 +109,56 @@ public class WrappedLib {
   public static void main(String[] args) throws Exception {
     var workingDirectory = Path.of(System.getProperty("user.dir"));
     var gloveTestPath = workingDirectory.resolve("datasets/glove-100-angular/test.fvecs");
-    try (IoUring uring = IoUring.create(gloveTestPath, 8)) {
-      try (Arena arena = Arena.ofConfined()) {
-        long bufferSize = 100 * Float.BYTES;
-        MemorySegment buf1 = arena.allocate(bufferSize);
-        MemorySegment buf2 = arena.allocate(bufferSize);
 
-        uring
-            .prepare(buf1, (int) bufferSize, 0)
-            .thenRun(
-                () -> {
-                  System.out.println("finished read 0");
-                  System.out.println("buf = " + Arrays.toString(buf1.toArray(JAVA_FLOAT)));
-                });
-        uring
-            .prepare(buf2, (int) bufferSize, bufferSize * 13)
-            .thenRun(
-                () -> {
-                  System.out.println("finished read 1");
-                  System.out.println("buf = " + Arrays.toString(buf2.toArray(JAVA_FLOAT)));
-                });
-        uring.submit();
-        uring.awaitAll();
-      }
-    }
-  }
+    try (IoUring.FileFactory factory = IoUring.factory(gloveTestPath)) {
+      try (IoUring uring = factory.create(8)) {
+        try (Arena arena = Arena.ofConfined()) {
+          long bufferSize = 100 * Float.BYTES;
+          MemorySegment buf1 = arena.allocate(bufferSize);
+          MemorySegment buf2 = arena.allocate(bufferSize);
 
-  public static void oldMain(String[] args) throws Exception {
-    var workingDirectory = Path.of(System.getProperty("user.dir"));
-    var gloveTestPath = workingDirectory.resolve("datasets/glove-100-angular/test.fvecs");
-
-    try (Arena arena = Arena.ofConfined()) {
-      MemorySegment pathname = arena.allocateUtf8String(gloveTestPath.toString());
-      MemorySegment ring = initRing(pathname, 8);
-
-      long bufferSize = 100 * Float.BYTES;
-      MemorySegment buf1 = arena.allocate(bufferSize);
-      MemorySegment buf2 = arena.allocate(bufferSize);
-
-      prepRead(ring, 0L, buf1, (int) bufferSize, 0);
-      prepRead(ring, 1L, buf2, (int) bufferSize, bufferSize * 13);
-
-      submitRequests(ring);
-
-      for (int i = 0; i < 2; i++) {
-        MemorySegment result = waitForRequest(ring);
-        int res = (int) WRAPPED_RESULT_RES_HANDLE.get(result);
-        if (res < 0) {
-          throw new IOException("error reading file, errno: " + res);
+          uring
+              .prepare(buf1, (int) bufferSize, 0)
+              .thenRun(
+                  () -> {
+                    System.out.println("finished read 0");
+                    System.out.println("buf = " + Arrays.toString(buf1.toArray(JAVA_FLOAT)));
+                  });
+          uring
+              .prepare(buf2, (int) bufferSize, bufferSize * 13)
+              .thenRun(
+                  () -> {
+                    System.out.println("finished read 1");
+                    System.out.println("buf = " + Arrays.toString(buf2.toArray(JAVA_FLOAT)));
+                  });
+          uring.submit();
+          uring.awaitAll();
         }
-
-        long userData = (long) WRAPPED_RESULT_USER_DATA_HANDLE.get(result);
-        System.out.println("finished read " + userData);
-
-        MemorySegment buf = userData == 0 ? buf1 : buf2;
-        System.out.println("buf = " + Arrays.toString(buf.toArray(JAVA_FLOAT)));
-
-        completeRequest(ring, result);
       }
-
-      closeRing(ring);
     }
   }
 
   static MemorySegment initRing(MemorySegment path, int entries) {
     MemorySegment uninterpreted;
     try {
-      uninterpreted = (MemorySegment) INIT_RING_HANDLE.invokeExact(path, entries);
+      uninterpreted = (MemorySegment) INIT_RING_FROM_PATH_HANDLE.invokeExact(path, entries);
     } catch (Throwable t) {
-      throw new RuntimeException(invokeErrorString(INIT_RING), t);
+      throw new RuntimeException(invokeErrorString(INIT_RING_FROM_PATH), t);
+    }
+
+    if (uninterpreted == null) {
+      throw new RuntimeException("ring is full");
+    }
+
+    return uninterpreted.reinterpret(WRAPPED_IO_URING.byteSize());
+  }
+
+  static MemorySegment initRing(int fd, int entries) {
+    MemorySegment uninterpreted;
+    try {
+      uninterpreted = (MemorySegment) INIT_RING_FROM_FD_HANDLE.invokeExact(fd, entries);
+    } catch (Throwable t) {
+      throw new RuntimeException(invokeErrorString(INIT_RING_FROM_PATH), t);
     }
 
     if (uninterpreted == null) {

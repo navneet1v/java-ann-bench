@@ -1,9 +1,15 @@
 package com.github.kevindrosendahl.javaannbench.util.iouring;
 
+import static java.lang.foreign.ValueLayout.ADDRESS;
+import static java.lang.foreign.ValueLayout.JAVA_INT;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
+import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -12,7 +18,93 @@ import java.util.concurrent.CompletableFuture;
 public class IoUring implements Closeable {
 
   public static class FileFactory implements Closeable {
+
+    private static final MethodHandle OPEN;
+    private static final MethodHandle CLOSE;
+    private static final MethodHandle ERRNO;
+
+    static {
+      var linker = Linker.nativeLinker();
+      var stdlib = linker.defaultLookup();
+
+      OPEN =
+          linker.downcallHandle(
+              stdlib.find("open").get(),
+              FunctionDescriptor.of(
+                  JAVA_INT, /* returns int */
+                  ADDRESS, /* const char *pathname */
+                  JAVA_INT /* int flags */));
+
+      CLOSE =
+          linker.downcallHandle(
+              stdlib.find("close").get(),
+              FunctionDescriptor.of(JAVA_INT, /* returns int */ JAVA_INT /* int fd */));
+
+      ERRNO = linker.downcallHandle(stdlib.find("errno").get(), FunctionDescriptor.of(JAVA_INT));
+    }
+
     private final int fd;
+
+    private FileFactory(int fd) {
+      this.fd = fd;
+    }
+
+    static FileFactory create(Path path) {
+      int fd = open(path, 0);
+      return new FileFactory(fd);
+    }
+
+    public IoUring create(int entries) {
+      return IoUring.create(fd, entries);
+    }
+
+    @Override
+    public void close() {
+      close(fd);
+    }
+
+    private static int open(Path path, int flags) {
+      int result;
+      try (Arena arena = Arena.ofConfined()) {
+        MemorySegment pathname = arena.allocateUtf8String(path.toString());
+        result = (int) OPEN.invokeExact(pathname, flags);
+      } catch (Throwable t) {
+        throw new RuntimeException("caught error invoking open()", t);
+      }
+
+      if (result > 0) {
+        return result;
+      }
+
+      processErrnoResult(result, "open");
+      return -1;
+    }
+
+    private static void close(int fd) {
+      int result;
+      try {
+        result = (int) CLOSE.invokeExact(fd);
+      } catch (Throwable t) {
+        throw new RuntimeException("caught exception invoking close()", t);
+      }
+
+      processErrnoResult(result, "open");
+    }
+
+    private static void processErrnoResult(int result, String name) {
+      if (result == 0) {
+        return;
+      }
+
+      int errno;
+      try {
+        errno = (int) ERRNO.invokeExact();
+      } catch (Throwable t) {
+        throw new RuntimeException("caught exception invoking errno", t);
+      }
+
+      throw new RuntimeException("got error calling " + name + ", errno " + errno);
+    }
   }
 
   public static class Result {
@@ -35,12 +127,21 @@ public class IoUring implements Closeable {
     this.ring = ring;
   }
 
+  public static FileFactory factory(Path file) {
+    return FileFactory.create(file);
+  }
+
   public static IoUring create(Path file, int entries) {
     MemorySegment ring;
     try (Arena arena = Arena.ofConfined()) {
       MemorySegment path = arena.allocateUtf8String(file.toString());
       ring = WrappedLib.initRing(path, entries);
     }
+    return new IoUring(ring);
+  }
+
+  static IoUring create(int fd, int entries) {
+    MemorySegment ring = WrappedLib.initRing(fd, entries);
     return new IoUring(ring);
   }
 
