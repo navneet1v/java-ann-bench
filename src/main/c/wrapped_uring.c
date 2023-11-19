@@ -91,14 +91,17 @@ void wrapped_io_uring_prep_read(struct wrapped_io_uring *ring,
                                 uint64_t user_data, void *buf, unsigned nbytes,
                                 off_t offset) {
   printf("In C: wrapped_io_uring_prep_read: user_data = %lu\n", user_data);
+  fflush(stdout);
   struct io_uring_sqe *sqe = io_uring_get_sqe(ring->wrapped);
   io_uring_sqe_set_data(sqe, (void *)user_data);
   printf("In C: wrapped_io_uring_prep_read: sqe->user_data = %llu\n", sqe->user_data);
+  fflush(stdout);
   io_uring_prep_read(sqe, ring->fd, buf, nbytes, offset);
 }
 
 void wrapped_io_uring_submit_requests(struct wrapped_io_uring *ring) {
   printf("In C: submitting requests\n");
+  fflush(stdout);
   io_uring_submit(ring->wrapped);
 }
 
@@ -118,14 +121,18 @@ wrapped_io_uring_wait_for_request(struct wrapped_io_uring *ring) {
   result->res = ring->cqe->res;
   result->user_data = (uint64_t)io_uring_cqe_get_data(ring->cqe);
   printf("In C: wrapped_io_uring_wait_for_request: user_data = %lu\n", result->user_data);
+  fflush(stdout);
   printf("In C: wrapped_io_uring_wait_for_request: user_data ptr = %p\n", io_uring_cqe_get_data(ring->cqe));
+  fflush(stdout);
   printf("In C: wrapped_io_uring_wait_for_request: user_data ptr deref = %lu\n", (uint64_t)io_uring_cqe_get_data(ring->cqe));
+  fflush(stdout);
   return result;
 }
 
 void wrapped_io_uring_complete_request(struct wrapped_io_uring *ring,
                                        struct wrapped_result *result) {
   printf("In C: completing result = %lu\n", (uint64_t)io_uring_cqe_get_data(ring->cqe));
+  fflush(stdout);
   io_uring_cqe_seen(ring->wrapped, ring->cqe);
   free(result);
 }
