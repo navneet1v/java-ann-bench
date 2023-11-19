@@ -11,6 +11,10 @@ import java.util.concurrent.CompletableFuture;
 
 public class IoUring implements Closeable {
 
+  public static class FileFactory implements Closeable {
+    private final int fd;
+  }
+
   public static class Result {
     private final MemorySegment inner;
     public int res;

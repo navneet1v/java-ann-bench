@@ -15,8 +15,11 @@ struct wrapped_result {
   int res;
 };
 
-struct wrapped_io_uring *wrapped_io_uring_init_ring(char *path,
-                                                    unsigned entries);
+struct wrapped_io_uring *wrapped_io_uring_init_from_path(char *path,
+                                                         unsigned entries);
+
+struct wrapped_io_uring *wrapped_io_uring_init_from_fd(int fd,
+                                                       unsigned entries);
 
 void wrapped_io_uring_prep_read(struct wrapped_io_uring *ring,
                                 uint64_t user_data, void *buf, unsigned nbytes,

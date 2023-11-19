@@ -9,7 +9,7 @@
 #define BUFFER_SIZE 400
 
 int main() {
-  struct wrapped_io_uring *ring = wrapped_io_uring_init_ring(FILE_PATH, 8);
+  struct wrapped_io_uring *ring = wrapped_io_uring_init_from_path(FILE_PATH, 8);
 
   // Allocate buffers for read
   char *buf1 = malloc(BUFFER_SIZE);
@@ -47,8 +47,25 @@ int main() {
   return 0;
 }
 
-struct wrapped_io_uring *wrapped_io_uring_init_ring(char *path,
-                                                    unsigned entries) {
+struct wrapped_io_uring *wrapped_io_uring_init_from_path(char *path,
+                                                         unsigned entries) {
+  int fd = open(FILE_PATH, O_RDONLY);
+  if (fd < 0) {
+    perror("Failed to open file");
+    return NULL;
+  }
+
+  struct wrapped_io_uring *ring = wrapped_io_uring_init_from_fd(fd, entries);
+  if (ring == NULL) {
+    close(fd);
+    return NULL;
+  }
+
+  return ring;
+}
+
+struct wrapped_io_uring *wrapped_io_uring_init_from_fd(int fd,
+                                                       unsigned entries) {
   struct io_uring *ring = malloc(sizeof(struct io_uring));
   if (ring == NULL) {
     perror("Failed to allocate memory for io_uring");
@@ -57,17 +74,9 @@ struct wrapped_io_uring *wrapped_io_uring_init_ring(char *path,
 
   io_uring_queue_init(entries, ring, 0);
 
-  int fd = open(FILE_PATH, O_RDONLY);
-  if (fd < 0) {
-    perror("Failed to open file");
-    free(ring);
-    return NULL;
-  }
-
   struct wrapped_io_uring *wrapped = malloc(sizeof(struct wrapped_io_uring));
   if (wrapped == NULL) {
     perror("Failed to allocate memory for wrapped_io_uring");
-    close(fd);
     free(ring);
     return NULL;
   }
