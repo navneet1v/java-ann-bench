@@ -28,7 +28,7 @@ int main() {
       fprintf(stderr, "IO error: %s\n", strerror(-result->res));
     } else {
       printf("Read %d bytes as vector: [", result->res);
-      int numFloats = result->res / sizeof(float);
+      int numFlats = result->res / sizeof(float);
       float *floatBuf = i == 0 ? (float *)buf1 : (float *)buf2;
       for (int j = 0; j < numFloats; j++) {
         printf("%f", floatBuf[j]);
@@ -120,8 +120,6 @@ wrapped_io_uring_wait_for_request(struct wrapped_io_uring *ring) {
 
 void wrapped_io_uring_complete_request(struct wrapped_io_uring *ring,
                                        struct wrapped_result *result) {
-  printf("In C: completing result = %lu\n", (uint64_t)io_uring_cqe_get_data(ring->cqe));
-  fflush(stdout);
   io_uring_cqe_seen(ring->wrapped, ring->cqe);
   free(result);
 }
