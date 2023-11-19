@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class IoUring implements Closeable {
 
@@ -122,7 +123,7 @@ public class IoUring implements Closeable {
   }
 
   private final MemorySegment ring;
-  private long counter = 0;
+  private final AtomicLong counter = new AtomicLong();
   private final Map<Long, CompletableFuture<Void>> futures = new HashMap<>();
 
   private IoUring(MemorySegment ring) {
@@ -148,7 +149,7 @@ public class IoUring implements Closeable {
   }
 
   public CompletableFuture<Void> prepare(MemorySegment buffer, int numbytes, long offset) {
-    long id = counter++;
+    long id = counter.getAndIncrement();
     WrappedLib.prepRead(ring, id, buffer, numbytes, offset);
     CompletableFuture<Void> future = new CompletableFuture<>();
     futures.put(id, future);
