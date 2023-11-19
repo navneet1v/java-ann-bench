@@ -184,6 +184,10 @@ public class IoUring implements Closeable {
     System.out.println("done completing");
 
     CompletableFuture<Void> future = futures.remove(id);
+    if (future == null) {
+      throw new RuntimeException("couldn't find future for id " + id);
+    }
+
     if (res < 0) {
       future.completeExceptionally(new IOException("error reading file, errno: " + res));
     } else {
