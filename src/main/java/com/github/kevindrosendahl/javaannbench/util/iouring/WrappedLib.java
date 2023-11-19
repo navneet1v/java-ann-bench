@@ -1,6 +1,5 @@
 package com.github.kevindrosendahl.javaannbench.util.iouring;
 
-import static java.lang.foreign.MemoryLayout.*;
 import static java.lang.foreign.ValueLayout.ADDRESS;
 import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
@@ -19,15 +18,16 @@ import java.util.Arrays;
 
 public class WrappedLib {
   private static final MemoryLayout WRAPPED_IO_URING =
-      structLayout(ADDRESS.withName("wrapped"), ADDRESS.withName("cqe"), JAVA_INT.withName("fd"));
+      MemoryLayout.structLayout(
+          ADDRESS.withName("wrapped"), ADDRESS.withName("cqe"), JAVA_INT.withName("fd"));
 
   private static final MemoryLayout WRAPPED_RESULT =
-      structLayout(JAVA_LONG.withName("user_data"), JAVA_INT.withName("res"));
+      MemoryLayout.structLayout(JAVA_LONG.withName("user_data"), JAVA_INT.withName("res"));
 
   static final VarHandle WRAPPED_RESULT_RES_HANDLE =
-      WRAPPED_RESULT.varHandle(PathElement.groupElement("res"));
+      WRAPPED_RESULT.varHandle(MemoryLayout.PathElement.groupElement("res"));
   static final VarHandle WRAPPED_RESULT_USER_DATA_HANDLE =
-      WRAPPED_RESULT.varHandle(PathElement.groupElement("user_data"));
+      WRAPPED_RESULT.varHandle(MemoryLayout.PathElement.groupElement("user_data"));
 
   private static final String INIT_RING_FROM_PATH = "wrapped_io_uring_init_from_path";
   private static final MethodHandle INIT_RING_FROM_PATH_HANDLE;
