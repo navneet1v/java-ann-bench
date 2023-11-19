@@ -67,31 +67,31 @@ public class IOUring {
 
   private static final MemoryLayout IO_URING_SQ_LAYOUT =
       MemoryLayout.structLayout(
-              JAVA_LONG.withName("khead"), // unsigned *khead
-              JAVA_LONG.withName("ktail"), // unsigned *ktail
-              JAVA_LONG.withName("kring_mask"), // unsigned *kring_mask
-              JAVA_LONG.withName("kring_entries"), // unsigned *kring_entries
-              JAVA_LONG.withName("kflags"), // unsigned *kflags
-              JAVA_LONG.withName("kdropped"), // unsigned *kdropped
-              JAVA_LONG.withName("array"), // unsigned *array
-              JAVA_LONG.withName("sqes"), // struct io_uring_sqe *sqes
+              ADDRESS.withName("khead"), // unsigned *khead
+              ADDRESS.withName("ktail"), // unsigned *ktail
+              ADDRESS.withName("kring_mask"), // unsigned *kring_mask
+              ADDRESS.withName("kring_entries"), // unsigned *kring_entries
+              ADDRESS.withName("kflags"), // unsigned *kflags
+              ADDRESS.withName("kdropped"), // unsigned *kdropped
+              ADDRESS.withName("array"), // unsigned *array
+              ADDRESS.withName("sqes"), // struct io_uring_sqe *sqes
               JAVA_INT.withName("sqe_head"), // unsigned sqe_head
               JAVA_INT.withName("sqe_tail"), // unsigned sqe_tail
               JAVA_LONG.withName("ring_sz"), // size_t ring_sz
-              JAVA_LONG.withName("ring_ptr") // void *ring_ptr
+              ADDRESS.withName("ring_ptr") // void *ring_ptr
               )
           .withName("io_uring_sq");
 
   private static final MemoryLayout IO_URING_CQ_LAYOUT =
       MemoryLayout.structLayout(
-              JAVA_LONG.withName("khead"), // unsigned *khead
-              JAVA_LONG.withName("ktail"), // unsigned *ktail
-              JAVA_LONG.withName("kring_mask"), // unsigned *kring_mask
-              JAVA_LONG.withName("kring_entries"), // unsigned *kring_entries
-              JAVA_LONG.withName("koverflow"), // unsigned *koverflow
-              JAVA_LONG.withName("cqes"), // struct io_uring_cqe *cqes
+              ADDRESS.withName("khead"), // unsigned *khead
+              ADDRESS.withName("ktail"), // unsigned *ktail
+              ADDRESS.withName("kring_mask"), // unsigned *kring_mask
+              ADDRESS.withName("kring_entries"), // unsigned *kring_entries
+              ADDRESS.withName("koverflow"), // unsigned *koverflow
+              ADDRESS.withName("cqes"), // struct io_uring_cqe *cqes
               JAVA_LONG.withName("ring_sz"), // size_t ring_sz
-              JAVA_LONG.withName("ring_ptr") // void *ring_ptr
+              ADDRESS.withName("ring_ptr") // void *ring_ptr
               )
           .withName("io_uring_cq");
 
