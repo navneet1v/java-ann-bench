@@ -68,7 +68,7 @@ public class WrappedLib {
 
     INIT_RING_FROM_FD_HANDLE =
         linker.downcallHandle(
-            uringLookup.find(INIT_RING_FROM_PATH).get(),
+            uringLookup.find(INIT_RING_FROM_FD).get(),
             FunctionDescriptor.of(
                 ADDRESS, /* returns *wrapped_io_uring */
                 JAVA_INT, /* int fd */
@@ -160,7 +160,7 @@ public class WrappedLib {
     try {
       uninterpreted = (MemorySegment) INIT_RING_FROM_FD_HANDLE.invokeExact(fd, entries);
     } catch (Throwable t) {
-      throw new RuntimeException(invokeErrorString(INIT_RING_FROM_PATH), t);
+      throw new RuntimeException(invokeErrorString(INIT_RING_FROM_FD), t);
     }
 
     if (uninterpreted == null) {
