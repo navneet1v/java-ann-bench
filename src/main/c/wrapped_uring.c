@@ -9,45 +9,6 @@
 #define FILE_PATH "/home/ubuntu/java-ann-bench/datasets/glove-100-angular/test.fvecs"
 #define BUFFER_SIZE 400
 
-int main() {
-  struct wrapped_io_uring *ring = wrapped_io_uring_init_from_path(FILE_PATH, 8);
-
-  // Allocate buffers for read
-  char *buf1 = malloc(BUFFER_SIZE);
-  char *buf2 = malloc(BUFFER_SIZE);
-
-  wrapped_io_uring_prep_read(ring, 50, buf1, BUFFER_SIZE, 0);
-  wrapped_io_uring_prep_read(ring, 113, buf2, BUFFER_SIZE, BUFFER_SIZE * 13);
-
-  wrapped_io_uring_submit_requests(ring);
-
-  // Complete the requests
-  for (int i = 0; i < 2; i++) {
-    struct wrapped_result *result = wrapped_io_uring_wait_for_request(ring);
-    if (result->res < 0) {
-      fprintf(stderr, "IO error: %s\n", strerror(-result->res));
-    } else {
-      printf("Read %d bytes as vector: [", result->res);
-      int numFloats = result->res / sizeof(float);
-      float *floatBuf = i == 0 ? (float *)buf1 : (float *)buf2;
-      for (int j = 0; j < numFloats; j++) {
-        printf("%f", floatBuf[j]);
-        if (j < numFloats - 1) {
-          printf(", ");
-        }
-      }
-      printf("]\n");
-    }
-    wrapped_io_uring_complete_request(ring, result);
-  }
-
-  wrapped_io_uring_close_ring(ring);
-  free(buf1);
-  free(buf2);
-
-  return 0;
-}
-
 struct wrapped_io_uring *wrapped_io_uring_init_from_path(char *path,
                                                          unsigned entries) {
   int fd = open(FILE_PATH, O_RDONLY);
