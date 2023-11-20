@@ -31,6 +31,7 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.NoMergeScheduler;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
@@ -161,8 +162,8 @@ public final class LuceneIndex {
                       vamanaParams.scalarQuantization
                           ? new VectorSandboxScalarQuantizedVectorsFormat()
                           : null,
-                      vamanaParams.numThreads,
-                      vamanaParams.numThreads == 1
+                      vamanaParams.forceMerge ? vamanaParams.numThreads : 1,
+                      vamanaParams.numThreads == 1 || !vamanaParams.forceMerge
                           ? null
                           : Executors.newFixedThreadPool(vamanaParams.numThreads));
                 }
@@ -176,7 +177,8 @@ public final class LuceneIndex {
                   .setCodec(codec)
                   .setUseCompoundFile(false)
                   .setMaxBufferedDocs(1000000000)
-                  .setRAMBufferSizeMB(40 * 1024));
+                  .setRAMBufferSizeMB(40 * 1024)
+                  .setMergeScheduler(NoMergeScheduler.INSTANCE));
 
       return new LuceneIndex.Builder(vectors, directory, writer, provider, buildParams, similarity);
     }
