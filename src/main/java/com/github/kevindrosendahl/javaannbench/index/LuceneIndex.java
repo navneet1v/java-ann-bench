@@ -76,7 +76,13 @@ public final class LuceneIndex {
       boolean forceMerge)
       implements BuildParameters {}
 
-  public record QueryParameters(int numCandidates, String pqRerank) {}
+  public sealed interface QueryParameters permits HnswQueryParameters, VamanaQueryParameters {}
+
+  public record HnswQueryParameters(int numCandidates) implements QueryParameters {}
+
+  public record VamanaQueryParameters(
+      int numCandidates, String pqRerank, boolean mlock, int parallelRerankThreads)
+      implements QueryParameters {}
 
   private static final String VECTOR_FIELD = "vector";
   private static final String ID_FIELD = "id";
@@ -315,8 +321,7 @@ public final class LuceneIndex {
       var provider = Provider.parse(parameters.type());
 
       var buildParams = parseBuildPrams(provider, parameters.buildParameters());
-      var queryParams =
-          Records.fromMap(parameters.queryParameters(), QueryParameters.class, "query parameters");
+      var queryParams = parseQueryPrams(provider, parameters.queryParameters());
 
       var buildDescription = LuceneIndex.Builder.buildDescription(provider, buildParams);
       var path = indexesPath.resolve(buildDescription);
@@ -331,8 +336,14 @@ public final class LuceneIndex {
 
     @Override
     public List<Integer> query(float[] vector, int k) throws IOException {
-      var query = new KnnFloatVectorQuery(VECTOR_FIELD, vector, queryParams.numCandidates);
-      var results = this.searcher.search(query, queryParams.numCandidates);
+      var numCandidates =
+          switch (queryParams) {
+            case HnswQueryParameters hnsw -> hnsw.numCandidates;
+            case VamanaQueryParameters vamana -> vamana.numCandidates;
+          };
+
+      var query = new KnnFloatVectorQuery(VECTOR_FIELD, vector, numCandidates);
+      var results = this.searcher.search(query, numCandidates);
       var ids = new ArrayList<Integer>(k);
 
       for (int i = 0; i < k; i++) {
@@ -353,16 +364,24 @@ public final class LuceneIndex {
     @Override
     public String description() {
       return String.format(
-          "lucene_%s_%s_numCandidates:%s",
+          "lucene_%s_%s_%s",
           provider.description,
           LuceneIndex.Builder.buildParamString(buildParams),
-          queryParams.numCandidates);
+          queryParamString());
     }
 
     @Override
     public void close() throws Exception {
       this.directory.close();
       this.reader.close();
+    }
+
+    private String queryParamString() {
+      return switch (queryParams) {
+        case HnswQueryParameters hnsw -> String.format("numCandidates:%s", hnsw.numCandidates);
+        case VamanaQueryParameters vamana -> String.format(
+            "numCandidates:%s-pqRerank:%s", vamana.numCandidates, vamana.pqRerank);
+      };
     }
   }
 
@@ -372,6 +391,15 @@ public final class LuceneIndex {
       case HNSW -> Records.fromMap(parameters, HnswBuildParameters.class, "build parameters");
       case SANDBOX_VAMANA -> Records.fromMap(
           parameters, VamanaBuildParameters.class, "build parameters");
+    };
+  }
+
+  private static QueryParameters parseQueryPrams(
+      Provider provider, Map<String, String> parameters) {
+    return switch (provider) {
+      case HNSW -> Records.fromMap(parameters, HnswQueryParameters.class, "query parameters");
+      case SANDBOX_VAMANA -> Records.fromMap(
+          parameters, VamanaQueryParameters.class, "query parameters");
     };
   }
 }

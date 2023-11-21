@@ -29,7 +29,13 @@ query config:
   set -exuo pipefail
 
   pq_rerank=$(yq e '.query.pqRerank' {{config}})
+  mlock=$(yq e '.query.mlock' {{config}})
+  parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
+  
   export VAMANA_PQ_RERANK=${pq_rerank}
+  export VAMANA_MLOCK=${mlock}
+  export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
+
   ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
 
 query-docker config:
@@ -53,8 +59,14 @@ query-docker-internal config:
   set -exuo pipefail
 
   pq_rerank=$(yq e '.query.pqRerank' {{config}})
-  export VAMANA_PQ_RERANK=${pq_rerank}
+  mlock=$(yq e '.query.mlock' {{config}})
+  parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   heap_size=$(yq e '.runtime.heapSize' {{config}})
+
+  export VAMANA_PQ_RERANK=${pq_rerank}
+  export VAMANA_MLOCK=${mlock}
+  export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
+
   ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
 
 
