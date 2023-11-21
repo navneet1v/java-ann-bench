@@ -1,5 +1,4 @@
 build:
-	gcc -o wrapped_uring wrapped_uring.c -fPIC -luring
 	gcc -shared -o libwrappeduring.so wrapped_uring.c -fPIC -luring
 
 clean:
