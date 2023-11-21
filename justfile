@@ -19,6 +19,7 @@ update-lucene:
   cp submodules/lucene/lucene/core/build/libs/lucene-core-10.0.0-SNAPSHOT.jar libs/
 
 build-docker:
+  docker build -f Dockerfile-base -t java-ann-bench-base .
   docker build --no-cache -t java-ann-bench .
 
 build config:
