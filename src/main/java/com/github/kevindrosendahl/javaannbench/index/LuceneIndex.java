@@ -81,7 +81,7 @@ public final class LuceneIndex {
   public record HnswQueryParameters(int numCandidates) implements QueryParameters {}
 
   public record VamanaQueryParameters(
-      int numCandidates, String pqRerank, boolean mlock, int parallelRerankThreads)
+      int numCandidates, String pqRerank, boolean mlock, String parallelRerankThreads)
       implements QueryParameters {}
 
   private static final String VECTOR_FIELD = "vector";

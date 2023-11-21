@@ -31,7 +31,7 @@ query config:
   pq_rerank=$(yq e '.query.pqRerank' {{config}})
   mlock=$(yq e '.query.mlock' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
-  
+
   export VAMANA_PQ_RERANK=${pq_rerank}
   export VAMANA_MLOCK=${mlock}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
