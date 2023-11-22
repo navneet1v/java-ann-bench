@@ -59,6 +59,8 @@ public class QueryBench {
       var test = test(spec.runtime());
       var k = spec.k();
       var jfr = jfr(spec.runtime());
+      var recall = recall(spec.runtime());
+      var threadStats = recall(spec.runtime());
       var blockDevice = blockDevice(spec.runtime());
       int blockDeviceStatsIntervalMs = blockDeviceStatsIntervalMs(spec.runtime());
 
@@ -146,6 +148,8 @@ public class QueryBench {
                                                     minorFaults,
                                                     majorFaults,
                                                     concurrent,
+                                                    recall,
+                                                    threadStats,
                                                     progress);
                                               });
                                         });
@@ -170,6 +174,8 @@ public class QueryBench {
                     minorFaults,
                     majorFaults,
                     concurrent,
+                    recall,
+                    threadStats,
                     progress);
               }
             }
@@ -198,10 +204,14 @@ public class QueryBench {
 
         LOGGER.info("completed recall test for {}:", index.description());
         LOGGER.info("\ttotal queries {}", recalls.getN());
-        LOGGER.info("\taverage recall {}", recalls.getMean());
+        if (recall) {
+          LOGGER.info("\taverage recall {}", recalls.getMean());
+        }
         LOGGER.info("\taverage duration {}", Duration.ofNanos((long) executionDurations.getMean()));
-        LOGGER.info("\taverage minor faults {}", minorFaults.getMean());
-        LOGGER.info("\taverage major faults {}", majorFaults.getMean());
+        if (threadStats) {
+          LOGGER.info("\taverage minor faults {}", minorFaults.getMean());
+          LOGGER.info("\taverage major faults {}", majorFaults.getMean());
+        }
         if (diskStatsCollector != null) {
           LOGGER.info("\taverage queue length {}", diskStatsCollector.queueLength.getMean());
           LOGGER.info("\taverage transfer time {}", diskStatsCollector.transferTime.getMean());
@@ -219,10 +229,12 @@ public class QueryBench {
           LOGGER.info("\taverage read rate {}/s", readBytesRateBytes);
         }
         LOGGER.info("\tmax duration {}", Duration.ofNanos((long) executionDurations.getMax()));
-        LOGGER.info("\tmax minor faults {}", minorFaults.getMax());
-        LOGGER.info("\tmax major faults {}", majorFaults.getMax());
-        LOGGER.info("\ttotal minor faults {}", minorFaults.getSum());
-        LOGGER.info("\ttotal major faults {}", majorFaults.getSum());
+        if (threadStats) {
+          LOGGER.info("\tmax minor faults {}", minorFaults.getMax());
+          LOGGER.info("\tmax major faults {}", majorFaults.getMax());
+          LOGGER.info("\ttotal minor faults {}", minorFaults.getSum());
+          LOGGER.info("\ttotal major faults {}", majorFaults.getSum());
+        }
 
         new Report(index.description(), spec, recalls, executionDurations, minorFaults, majorFaults)
             .write(reportsPath);
@@ -243,17 +255,21 @@ public class QueryBench {
       DescriptiveStatistics minorFaults,
       DescriptiveStatistics majorFaults,
       boolean concurrent,
+      boolean collectRecall,
+      boolean threadStats,
       Progress progress)
       throws Exception {
     boolean collectThreadStats = systemInfo.getOperatingSystem().getFamily() != "macOS";
 
     StatsCollector statsCollector =
-        (collectThreadStats && concurrent)
-            ? new ThreadStatsCollector(systemInfo)
-            : new ProcessStatsCollector(systemInfo);
+        threadStats
+            ? (collectThreadStats && concurrent)
+                ? new ThreadStatsCollector(systemInfo)
+                : new ProcessStatsCollector(systemInfo)
+            : null;
     var startMinorFaults = 0L;
     var startMajorFaults = 0L;
-    if (collectThreadStats) {
+    if (threadStats && collectThreadStats) {
       Preconditions.checkArgument(statsCollector.update(), "failed to update stats");
       startMinorFaults = statsCollector.minorFaults();
       startMajorFaults = statsCollector.majorFaults();
@@ -265,7 +281,7 @@ public class QueryBench {
 
     var endMinorFaults = 0L;
     var endMajorFaults = 0L;
-    if (collectThreadStats) {
+    if (threadStats && collectThreadStats) {
       Preconditions.checkArgument(statsCollector.update(), "failed to update thread stats");
       endMinorFaults = statsCollector.minorFaults();
       endMajorFaults = statsCollector.majorFaults();
@@ -274,20 +290,24 @@ public class QueryBench {
     var duration = Duration.between(start, end);
     executionDurations.addValue(duration.toNanos());
 
-    Preconditions.checkArgument(
-        results.size() <= k,
-        "query %s in round %s returned %s results, expected less than k=%s",
-        j,
-        i,
-        results.size(),
-        k);
+    if (collectRecall) {
+      Preconditions.checkArgument(
+          results.size() <= k,
+          "query %s in round %s returned %s results, expected less than k=%s",
+          j,
+          i,
+          results.size(),
+          k);
 
-    var truePositives = groundTruth.stream().limit(k).filter(results::contains).count();
-    var recall = (double) truePositives / k;
-    recalls.addValue(recall);
+      var truePositives = groundTruth.stream().limit(k).filter(results::contains).count();
+      var recall = (double) truePositives / k;
+      recalls.addValue(recall);
+    }
 
-    minorFaults.addValue(endMinorFaults - startMinorFaults);
-    majorFaults.addValue(endMajorFaults - startMajorFaults);
+    if (threadStats) {
+      minorFaults.addValue(endMinorFaults - startMinorFaults);
+      majorFaults.addValue(endMajorFaults - startMajorFaults);
+    }
 
     progress.inc();
   }
@@ -464,6 +484,14 @@ public class QueryBench {
     return Optional.ofNullable(runtime.get("test"))
         .map(Integer::parseInt)
         .orElse(DEFAULT_TEST_ITERATIONS);
+  }
+
+  private static boolean recall(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("recall")).map(Boolean::parseBoolean).orElse(true);
+  }
+
+  private static boolean threadStats(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("threadStats")).map(Boolean::parseBoolean).orElse(true);
   }
 
   private static boolean jfr(Map<String, String> runtime) {
