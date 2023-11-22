@@ -13,7 +13,7 @@ public record QuerySpec(
     Map<String, String> build,
     Map<String, String> query,
     int k,
-    RuntimeConfiguration runtime) {
+    Map<String, String> runtime) {
 
   public record RuntimeConfiguration(
       String systemMemory, String heapSize, int queryThreads, boolean jfr) {}
@@ -23,14 +23,9 @@ public record QuerySpec(
   }
 
   public String toString() {
-    var runtimeParams =
-        String.format(
-            "systemMemory:%s-heapSize:%s-queryThreads:%s",
-            runtime.systemMemory, runtime.heapSize, runtime.queryThreads);
-
     return String.format(
         "%s_%s_%s_%s_%s_%s_%s",
-        dataset, provider, type, buildString(), queryString(), k, runtimeParams);
+        dataset, provider, type, buildString(), queryString(), k, runtimeString());
   }
 
   public String buildString() {
@@ -42,6 +37,13 @@ public record QuerySpec(
 
   public String queryString() {
     return query.entrySet().stream()
+        .sorted(Entry.comparingByKey())
+        .map(entry -> String.format("%s:%s", entry.getKey(), entry.getValue()))
+        .collect(Collectors.joining("-"));
+  }
+
+  public String runtimeString() {
+    return runtime.entrySet().stream()
         .sorted(Entry.comparingByKey())
         .map(entry -> String.format("%s:%s", entry.getKey(), entry.getValue()))
         .collect(Collectors.joining("-"));

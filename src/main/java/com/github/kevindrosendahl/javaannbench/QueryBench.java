@@ -4,6 +4,7 @@ import com.github.kevindrosendahl.javaannbench.dataset.Datasets;
 import com.github.kevindrosendahl.javaannbench.display.Progress;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.index.Index;
+import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.github.kevindrosendahl.javaannbench.util.Exceptions;
 import com.google.common.base.Preconditions;
 import java.nio.file.Files;
@@ -14,7 +15,13 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import jdk.jfr.Configuration;
 import jdk.jfr.Recording;
@@ -32,8 +39,9 @@ public class QueryBench {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(QueryBench.class);
 
-  private static final int WARMUP_ITERATIONS = 1;
-  private static final int TEST_ITERATIONS = 2;
+  private static final int DEFAULT_WARMUP_ITERATIONS = 1;
+  private static final int DEFAULT_TEST_ITERATIONS = 2;
+  private static final int DEFAULT_BLOCK_DEVICE_STATS_INTERVAL_MS = 10;
 
   public static void test(QuerySpec spec, Path datasetsPath, Path indexesPath, Path reportsPath)
       throws Exception {
@@ -42,22 +50,28 @@ public class QueryBench {
         Index.Querier.fromParameters(
             dataset, indexesPath, spec.provider(), spec.type(), spec.build(), spec.query())) {
 
-      var concurrent = spec.runtime().queryThreads() != 1;
+      var queryThreads = queryThreads(spec.runtime());
+      var concurrent = queryThreads != 1;
       var systemInfo = new SystemInfo();
       var numQueries = dataset.test().size();
       var queries = new ArrayList<float[]>(numQueries);
-      int k = spec.k();
+      var warmup = warmup(spec.runtime());
+      var test = test(spec.runtime());
+      var k = spec.k();
+      var jfr = jfr(spec.runtime());
+      var blockDevice = blockDevice(spec.runtime());
+      int blockDeviceStatsIntervalMs = blockDeviceStatsIntervalMs(spec.runtime());
 
       for (int i = 0; i < numQueries; i++) {
         queries.add(dataset.test().vectorValue(i));
       }
 
-      try (var pool = new ForkJoinPool(spec.runtime().queryThreads())) {
-        try (var progress = ProgressBar.create("warmup", WARMUP_ITERATIONS * numQueries)) {
+      try (var pool = new ForkJoinPool(queryThreads)) {
+        try (var progress = ProgressBar.create("warmup", warmup * numQueries)) {
           if (concurrent) {
             pool.submit(
                     () -> {
-                      IntStream.range(0, WARMUP_ITERATIONS)
+                      IntStream.range(0, warmup)
                           .parallel()
                           .forEach(
                               i -> {
@@ -76,7 +90,7 @@ public class QueryBench {
                     })
                 .join();
           } else {
-            for (int i = 0; i < WARMUP_ITERATIONS; i++) {
+            for (int i = 0; i < warmup; i++) {
               for (int j = 0; j < numQueries; j++) {
                 var query = queries.get(j);
                 index.query(query, k);
@@ -92,16 +106,22 @@ public class QueryBench {
         var majorFaults = new SynchronizedDescriptiveStatistics();
 
         Recording recording = null;
-        if (spec.runtime().jfr()) {
+        if (jfr) {
           Configuration config = Configuration.getConfiguration("profile");
           recording = new Recording(config);
           recording.start();
         }
-        try (var progress = ProgressBar.create("testing", TEST_ITERATIONS * numQueries)) {
+        DiskStatsCollector diskStatsCollector = null;
+        if (blockDevice.isPresent()) {
+          diskStatsCollector =
+              collectDiskStats(systemInfo, blockDevice.get(), blockDeviceStatsIntervalMs);
+        }
+
+        try (var progress = ProgressBar.create("testing", test * numQueries)) {
           if (concurrent) {
             pool.submit(
                     () -> {
-                      IntStream.range(0, TEST_ITERATIONS)
+                      IntStream.range(0, test)
                           .parallel()
                           .forEach(
                               i -> {
@@ -133,7 +153,7 @@ public class QueryBench {
                     })
                 .join();
           } else {
-            for (int i = 0; i < TEST_ITERATIONS; i++) {
+            for (int i = 0; i < test; i++) {
               for (int j = 0; j < numQueries; j++) {
                 var query = queries.get(j);
                 var groundTruth = dataset.groundTruth().get(j);
@@ -155,7 +175,15 @@ public class QueryBench {
             }
           }
         }
-        if (spec.runtime().jfr()) {
+        if (jfr) {
+          recording.stop();
+        }
+        if (diskStatsCollector != null) {
+          diskStatsCollector.latch.countDown();
+          diskStatsCollector.latch.await();
+          diskStatsCollector.future.get();
+        }
+        if (jfr) {
           var formatter =
               DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
                   .withZone(ZoneId.of("America/Los_Angeles"));
@@ -163,7 +191,6 @@ public class QueryBench {
           var jfrPath = reportsPath.resolve(jfrFileName);
 
           recording.dump(jfrPath);
-          recording.stop();
           recording.close();
 
           LOGGER.info("wrote jfr recording {}", jfrFileName);
@@ -175,6 +202,22 @@ public class QueryBench {
         LOGGER.info("\taverage duration {}", Duration.ofNanos((long) executionDurations.getMean()));
         LOGGER.info("\taverage minor faults {}", minorFaults.getMean());
         LOGGER.info("\taverage major faults {}", majorFaults.getMean());
+        if (diskStatsCollector != null) {
+          LOGGER.info("\taverage queue length {}", diskStatsCollector.queueLength.getMean());
+          LOGGER.info("\taverage transfer time {}", diskStatsCollector.transferTime.getMean());
+
+          long samples = diskStatsCollector.reads.getN();
+          int seconds = 1000 / ((int) samples * blockDeviceStatsIntervalMs);
+
+          double reads = diskStatsCollector.reads.getSum();
+          double readRate = reads / seconds;
+          LOGGER.info("\taverage reads {}/s", readRate);
+
+          double readBytes = diskStatsCollector.readBytes.getSum();
+          double readBytesRate = readBytes / seconds;
+          Bytes readBytesRateBytes = Bytes.ofBytes((long) readBytesRate);
+          LOGGER.info("\taverage read rate {}/s", readBytesRateBytes);
+        }
         LOGGER.info("\tmax duration {}", Duration.ofNanos((long) executionDurations.getMax()));
         LOGGER.info("\tmax minor faults {}", minorFaults.getMax());
         LOGGER.info("\tmax major faults {}", majorFaults.getMax());
@@ -248,6 +291,63 @@ public class QueryBench {
 
     progress.inc();
   }
+
+  private static DiskStatsCollector collectDiskStats(
+      SystemInfo info, String deviceName, int intervalMillis) {
+    var latch = new CountDownLatch(1);
+    var queueLength = new SynchronizedDescriptiveStatistics();
+    var readBytes = new SynchronizedDescriptiveStatistics();
+    var reads = new SynchronizedDescriptiveStatistics();
+    var transferTime = new SynchronizedDescriptiveStatistics();
+
+    var disk =
+        info.getHardware().getDiskStores().stream()
+            .filter(store -> store.getName().equals(deviceName))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("could not find device " + deviceName));
+
+    var future =
+        CompletableFuture.runAsync(
+            () -> {
+              Exceptions.wrap(
+                  () -> {
+                    disk.updateAttributes();
+                    long totalBytesRead = disk.getReadBytes();
+                    long totalReads = disk.getReads();
+
+                    for (int i = 0; ; i++) {
+                      boolean done = latch.await(intervalMillis, TimeUnit.MILLISECONDS);
+                      if (done) {
+                        return;
+                      }
+
+                      disk.updateAttributes();
+                      queueLength.addValue((double) disk.getCurrentQueueLength());
+
+                      long previousTotalBytesRead = totalBytesRead;
+                      totalBytesRead = disk.getReadBytes();
+                      readBytes.addValue((double) totalBytesRead - previousTotalBytesRead);
+
+                      long previousTotalReads = totalReads;
+                      totalReads = disk.getReads();
+                      reads.addValue((double) totalReads - previousTotalReads);
+
+                      transferTime.addValue((double) disk.getTransferTime());
+                    }
+                  });
+            },
+            Executors.newSingleThreadExecutor());
+
+    return new DiskStatsCollector(latch, future, queueLength, readBytes, reads, transferTime);
+  }
+
+  private record DiskStatsCollector(
+      CountDownLatch latch,
+      CompletableFuture<?> future,
+      DescriptiveStatistics queueLength,
+      DescriptiveStatistics readBytes,
+      DescriptiveStatistics reads,
+      DescriptiveStatistics transferTime) {}
 
   private interface StatsCollector {
     boolean update();
@@ -328,9 +428,7 @@ public class QueryBench {
             spec.type(),
             spec.buildString(),
             spec.queryString(),
-            spec.runtime().systemMemory(),
-            spec.runtime().heapSize(),
-            Integer.toString(spec.runtime().queryThreads()),
+            spec.runtimeString(),
             Double.toString(recall.getMean()),
             Long.toString((long) executionDurations.getMean()),
             Long.toString((long) executionDurations.getMax()),
@@ -350,5 +448,35 @@ public class QueryBench {
 
       LOGGER.info("wrote report to {}", path);
     }
+  }
+
+  private static int queryThreads(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("queryThreads")).map(Integer::parseInt).orElse(1);
+  }
+
+  private static int warmup(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("warmup"))
+        .map(Integer::parseInt)
+        .orElse(DEFAULT_WARMUP_ITERATIONS);
+  }
+
+  private static int test(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("test"))
+        .map(Integer::parseInt)
+        .orElse(DEFAULT_TEST_ITERATIONS);
+  }
+
+  private static boolean jfr(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("jfr")).map(Boolean::parseBoolean).orElse(false);
+  }
+
+  private static Optional<String> blockDevice(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("blockDevice"));
+  }
+
+  private static int blockDeviceStatsIntervalMs(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("blockDeviceStatsIntervalMs"))
+        .map(Integer::parseInt)
+        .orElse(DEFAULT_BLOCK_DEVICE_STATS_INTERVAL_MS);
   }
 }
