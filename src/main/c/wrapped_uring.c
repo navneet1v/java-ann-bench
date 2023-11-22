@@ -34,7 +34,12 @@ struct wrapped_io_uring *wrapped_io_uring_init_from_fd(int fd,
     return NULL;
   }
 
-  io_uring_queue_init(entries, ring, 0);
+  int ret = io_uring_queue_init(entries, ring, 0);
+  if (ret < 0) {
+    perror("Failed to initialize ring");
+    free(ring);
+    return NULL;
+  }
 
   struct wrapped_io_uring *wrapped = malloc(sizeof(struct wrapped_io_uring));
   if (wrapped == NULL) {
