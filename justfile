@@ -46,6 +46,10 @@ query-docker config:
   sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'
   system_memory=$(yq e '.runtime.systemMemory' {{config}})
   docker run --rm \
+    --privileged \
+    --name query-bench-run \
+    -v /usr/src:/usr/src:ro \
+    -v /lib/modules:/lib/modules:ro
     -v "$(pwd)/configs":/java-ann-bench/configs \
     -v "$(pwd)/datasets":/java-ann-bench/datasets \
     -v "$(pwd)/indexes":/java-ann-bench/indexes \
