@@ -98,6 +98,7 @@ public class QueryBench {
               for (int i = 0; i < warmup; i++) {
                 for (int j = 0; j < numQueries; j++) {
                   printer.println(COUNTER++);
+                  printer.flush();
                   var query = queries.get(j);
                   index.query(query, k);
                   progress.inc();
@@ -162,6 +163,7 @@ public class QueryBench {
               for (int i = 0; i < test; i++) {
                 for (int j = 0; j < numQueries; j++) {
                   printer.println(COUNTER++);
+                  printer.flush();
                   var query = queries.get(j);
                   var groundTruth = dataset.groundTruth().get(j);
                   runQuery(
