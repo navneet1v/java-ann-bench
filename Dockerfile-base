@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
   git \
   liburing2 \
   linux-tools-common \
-  linux-tools-generic
+  linux-tools-generic \
+  linux-tools-6.2.0-1012-aws
 
 
 # Install yq
