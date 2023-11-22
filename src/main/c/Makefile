@@ -2,7 +2,6 @@ build:
 	gcc -shared -o libwrappeduring.so wrapped_uring.c -fPIC -luring
 
 clean:
-	rm wrapped_uring
 	rm libwrappeduring.so
 
 format:
