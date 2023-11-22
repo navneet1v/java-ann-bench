@@ -7,7 +7,6 @@ import com.github.kevindrosendahl.javaannbench.index.Index;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.github.kevindrosendahl.javaannbench.util.Exceptions;
 import com.google.common.base.Preconditions;
-import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -44,8 +43,6 @@ public class QueryBench {
   private static final int DEFAULT_TEST_ITERATIONS = 2;
   private static final int DEFAULT_BLOCK_DEVICE_STATS_INTERVAL_MS = 10;
 
-  private static int COUNTER = 0;
-
   public static void test(QuerySpec spec, Path datasetsPath, Path indexesPath, Path reportsPath)
       throws Exception {
     var dataset = Datasets.load(datasetsPath, spec.dataset());
@@ -53,191 +50,182 @@ public class QueryBench {
         Index.Querier.fromParameters(
             dataset, indexesPath, spec.provider(), spec.type(), spec.build(), spec.query())) {
 
-      try (var printer = new PrintWriter("java-ann-bench.txt")) {
+      var queryThreads = queryThreads(spec.runtime());
+      var concurrent = queryThreads != 1;
+      var systemInfo = new SystemInfo();
+      var numQueries = dataset.test().size();
+      var queries = new ArrayList<float[]>(numQueries);
+      var warmup = warmup(spec.runtime());
+      var test = test(spec.runtime());
+      var k = spec.k();
+      var jfr = jfr(spec.runtime());
+      var blockDevice = blockDevice(spec.runtime());
+      int blockDeviceStatsIntervalMs = blockDeviceStatsIntervalMs(spec.runtime());
 
-        var queryThreads = queryThreads(spec.runtime());
-        var concurrent = queryThreads != 1;
-        var systemInfo = new SystemInfo();
-        var numQueries = dataset.test().size();
-        var queries = new ArrayList<float[]>(numQueries);
-        var warmup = warmup(spec.runtime());
-        var test = test(spec.runtime());
-        var k = spec.k();
-        var jfr = jfr(spec.runtime());
-        var blockDevice = blockDevice(spec.runtime());
-        int blockDeviceStatsIntervalMs = blockDeviceStatsIntervalMs(spec.runtime());
+      for (int i = 0; i < numQueries; i++) {
+        queries.add(dataset.test().vectorValue(i));
+      }
 
-        for (int i = 0; i < numQueries; i++) {
-          queries.add(dataset.test().vectorValue(i));
-        }
-
-        try (var pool = new ForkJoinPool(queryThreads)) {
-          try (var progress = ProgressBar.create("warmup", warmup * numQueries)) {
-            if (concurrent) {
-              pool.submit(
-                      () -> {
-                        IntStream.range(0, warmup)
-                            .parallel()
-                            .forEach(
-                                i -> {
-                                  IntStream.range(0, numQueries)
-                                      .parallel()
-                                      .forEach(
-                                          j -> {
-                                            Exceptions.wrap(
-                                                () -> {
-                                                  var query = queries.get(j);
-                                                  index.query(query, k);
-                                                  progress.inc();
-                                                });
-                                          });
-                                });
-                      })
-                  .join();
-            } else {
-              for (int i = 0; i < warmup; i++) {
-                for (int j = 0; j < numQueries; j++) {
-                  printer.println(COUNTER++);
-                  printer.flush();
-                  var query = queries.get(j);
-                  index.query(query, k);
-                  progress.inc();
-                }
+      try (var pool = new ForkJoinPool(queryThreads)) {
+        try (var progress = ProgressBar.create("warmup", warmup * numQueries)) {
+          if (concurrent) {
+            pool.submit(
+                    () -> {
+                      IntStream.range(0, warmup)
+                          .parallel()
+                          .forEach(
+                              i -> {
+                                IntStream.range(0, numQueries)
+                                    .parallel()
+                                    .forEach(
+                                        j -> {
+                                          Exceptions.wrap(
+                                              () -> {
+                                                var query = queries.get(j);
+                                                index.query(query, k);
+                                                progress.inc();
+                                              });
+                                        });
+                              });
+                    })
+                .join();
+          } else {
+            for (int i = 0; i < warmup; i++) {
+              for (int j = 0; j < numQueries; j++) {
+                var query = queries.get(j);
+                index.query(query, k);
+                progress.inc();
               }
             }
           }
+        }
 
-          var recalls = new SynchronizedDescriptiveStatistics();
-          var executionDurations = new SynchronizedDescriptiveStatistics();
-          var minorFaults = new SynchronizedDescriptiveStatistics();
-          var majorFaults = new SynchronizedDescriptiveStatistics();
+        var recalls = new SynchronizedDescriptiveStatistics();
+        var executionDurations = new SynchronizedDescriptiveStatistics();
+        var minorFaults = new SynchronizedDescriptiveStatistics();
+        var majorFaults = new SynchronizedDescriptiveStatistics();
 
-          Recording recording = null;
-          if (jfr) {
-            Configuration config = Configuration.getConfiguration("profile");
-            recording = new Recording(config);
-            recording.start();
-          }
-          DiskStatsCollector diskStatsCollector = null;
-          if (blockDevice.isPresent()) {
-            diskStatsCollector =
-                collectDiskStats(systemInfo, blockDevice.get(), blockDeviceStatsIntervalMs);
-          }
+        Recording recording = null;
+        if (jfr) {
+          Configuration config = Configuration.getConfiguration("profile");
+          recording = new Recording(config);
+          recording.start();
+        }
+        DiskStatsCollector diskStatsCollector = null;
+        if (blockDevice.isPresent()) {
+          diskStatsCollector =
+              collectDiskStats(systemInfo, blockDevice.get(), blockDeviceStatsIntervalMs);
+        }
 
-          try (var progress = ProgressBar.create("testing", test * numQueries)) {
-            if (concurrent) {
-              pool.submit(
-                      () -> {
-                        IntStream.range(0, test)
-                            .parallel()
-                            .forEach(
-                                i -> {
-                                  IntStream.range(0, numQueries)
-                                      .parallel()
-                                      .forEach(
-                                          j -> {
-                                            Exceptions.wrap(
-                                                () -> {
-                                                  var query = queries.get(j);
-                                                  var groundTruth = dataset.groundTruth().get(j);
-                                                  runQuery(
-                                                      index,
-                                                      query,
-                                                      groundTruth,
-                                                      spec.k(),
-                                                      i,
-                                                      j,
-                                                      systemInfo,
-                                                      recalls,
-                                                      executionDurations,
-                                                      minorFaults,
-                                                      majorFaults,
-                                                      concurrent,
-                                                      progress);
-                                                });
-                                          });
-                                });
-                      })
-                  .join();
-            } else {
-              for (int i = 0; i < test; i++) {
-                for (int j = 0; j < numQueries; j++) {
-                  printer.println(COUNTER++);
-                  printer.flush();
-                  var query = queries.get(j);
-                  var groundTruth = dataset.groundTruth().get(j);
-                  runQuery(
-                      index,
-                      query,
-                      groundTruth,
-                      spec.k(),
-                      i,
-                      j,
-                      systemInfo,
-                      recalls,
-                      executionDurations,
-                      minorFaults,
-                      majorFaults,
-                      concurrent,
-                      progress);
-                }
+        try (var progress = ProgressBar.create("testing", test * numQueries)) {
+          if (concurrent) {
+            pool.submit(
+                    () -> {
+                      IntStream.range(0, test)
+                          .parallel()
+                          .forEach(
+                              i -> {
+                                IntStream.range(0, numQueries)
+                                    .parallel()
+                                    .forEach(
+                                        j -> {
+                                          Exceptions.wrap(
+                                              () -> {
+                                                var query = queries.get(j);
+                                                var groundTruth = dataset.groundTruth().get(j);
+                                                runQuery(
+                                                    index,
+                                                    query,
+                                                    groundTruth,
+                                                    spec.k(),
+                                                    i,
+                                                    j,
+                                                    systemInfo,
+                                                    recalls,
+                                                    executionDurations,
+                                                    minorFaults,
+                                                    majorFaults,
+                                                    concurrent,
+                                                    progress);
+                                              });
+                                        });
+                              });
+                    })
+                .join();
+          } else {
+            for (int i = 0; i < test; i++) {
+              for (int j = 0; j < numQueries; j++) {
+                var query = queries.get(j);
+                var groundTruth = dataset.groundTruth().get(j);
+                runQuery(
+                    index,
+                    query,
+                    groundTruth,
+                    spec.k(),
+                    i,
+                    j,
+                    systemInfo,
+                    recalls,
+                    executionDurations,
+                    minorFaults,
+                    majorFaults,
+                    concurrent,
+                    progress);
               }
             }
           }
-          if (jfr) {
-            recording.stop();
-          }
-          if (diskStatsCollector != null) {
-            diskStatsCollector.latch.countDown();
-            diskStatsCollector.latch.await();
-            diskStatsCollector.future.get();
-          }
-          if (jfr) {
-            var formatter =
-                DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
-                    .withZone(ZoneId.of("America/Los_Angeles"));
-            var jfrFileName = formatter.format(Instant.now()) + ".jfr";
-            var jfrPath = reportsPath.resolve(jfrFileName);
-
-            recording.dump(jfrPath);
-            recording.close();
-
-            LOGGER.info("wrote jfr recording {}", jfrFileName);
-          }
-
-          LOGGER.info("completed recall test for {}:", index.description());
-          LOGGER.info("\ttotal queries {}", recalls.getN());
-          LOGGER.info("\taverage recall {}", recalls.getMean());
-          LOGGER.info(
-              "\taverage duration {}", Duration.ofNanos((long) executionDurations.getMean()));
-          LOGGER.info("\taverage minor faults {}", minorFaults.getMean());
-          LOGGER.info("\taverage major faults {}", majorFaults.getMean());
-          if (diskStatsCollector != null) {
-            LOGGER.info("\taverage queue length {}", diskStatsCollector.queueLength.getMean());
-            LOGGER.info("\taverage transfer time {}", diskStatsCollector.transferTime.getMean());
-
-            long samples = diskStatsCollector.reads.getN();
-            int seconds = 1000 / ((int) samples * blockDeviceStatsIntervalMs);
-
-            double reads = diskStatsCollector.reads.getSum();
-            double readRate = reads / seconds;
-            LOGGER.info("\taverage reads {}/s", readRate);
-
-            double readBytes = diskStatsCollector.readBytes.getSum();
-            double readBytesRate = readBytes / seconds;
-            Bytes readBytesRateBytes = Bytes.ofBytes((long) readBytesRate);
-            LOGGER.info("\taverage read rate {}/s", readBytesRateBytes);
-          }
-          LOGGER.info("\tmax duration {}", Duration.ofNanos((long) executionDurations.getMax()));
-          LOGGER.info("\tmax minor faults {}", minorFaults.getMax());
-          LOGGER.info("\tmax major faults {}", majorFaults.getMax());
-          LOGGER.info("\ttotal minor faults {}", minorFaults.getSum());
-          LOGGER.info("\ttotal major faults {}", majorFaults.getSum());
-
-          new Report(
-                  index.description(), spec, recalls, executionDurations, minorFaults, majorFaults)
-              .write(reportsPath);
         }
+        if (jfr) {
+          recording.stop();
+        }
+        if (diskStatsCollector != null) {
+          diskStatsCollector.latch.countDown();
+          diskStatsCollector.latch.await();
+          diskStatsCollector.future.get();
+        }
+        if (jfr) {
+          var formatter =
+              DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+                  .withZone(ZoneId.of("America/Los_Angeles"));
+          var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+          var jfrPath = reportsPath.resolve(jfrFileName);
+
+          recording.dump(jfrPath);
+          recording.close();
+
+          LOGGER.info("wrote jfr recording {}", jfrFileName);
+        }
+
+        LOGGER.info("completed recall test for {}:", index.description());
+        LOGGER.info("\ttotal queries {}", recalls.getN());
+        LOGGER.info("\taverage recall {}", recalls.getMean());
+        LOGGER.info("\taverage duration {}", Duration.ofNanos((long) executionDurations.getMean()));
+        LOGGER.info("\taverage minor faults {}", minorFaults.getMean());
+        LOGGER.info("\taverage major faults {}", majorFaults.getMean());
+        if (diskStatsCollector != null) {
+          LOGGER.info("\taverage queue length {}", diskStatsCollector.queueLength.getMean());
+          LOGGER.info("\taverage transfer time {}", diskStatsCollector.transferTime.getMean());
+
+          long samples = diskStatsCollector.reads.getN();
+          int seconds = 1000 / ((int) samples * blockDeviceStatsIntervalMs);
+
+          double reads = diskStatsCollector.reads.getSum();
+          double readRate = reads / seconds;
+          LOGGER.info("\taverage reads {}/s", readRate);
+
+          double readBytes = diskStatsCollector.readBytes.getSum();
+          double readBytesRate = readBytes / seconds;
+          Bytes readBytesRateBytes = Bytes.ofBytes((long) readBytesRate);
+          LOGGER.info("\taverage read rate {}/s", readBytesRateBytes);
+        }
+        LOGGER.info("\tmax duration {}", Duration.ofNanos((long) executionDurations.getMax()));
+        LOGGER.info("\tmax minor faults {}", minorFaults.getMax());
+        LOGGER.info("\tmax major faults {}", majorFaults.getMax());
+        LOGGER.info("\ttotal minor faults {}", minorFaults.getSum());
+        LOGGER.info("\ttotal major faults {}", majorFaults.getSum());
+
+        new Report(index.description(), spec, recalls, executionDurations, minorFaults, majorFaults)
+            .write(reportsPath);
       }
     }
   }
