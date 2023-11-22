@@ -86,7 +86,7 @@ public interface Index extends AutoCloseable {
 
   interface Querier extends Index {
 
-    List<Integer> query(float[] vector, int k) throws IOException;
+    List<Integer> query(float[] vector, int k, boolean ensureIds) throws IOException;
 
     static Querier fromDescription(Dataset dataset, Path indexesPath, String description)
         throws IOException {

@@ -84,7 +84,7 @@ public class QueryBench {
                                           Exceptions.wrap(
                                               () -> {
                                                 var query = queries.get(j);
-                                                index.query(query, k);
+                                                index.query(query, k, recall);
                                                 progress.inc();
                                               });
                                         });
@@ -95,7 +95,7 @@ public class QueryBench {
             for (int i = 0; i < warmup; i++) {
               for (int j = 0; j < numQueries; j++) {
                 var query = queries.get(j);
-                index.query(query, k);
+                index.query(query, k, recall);
                 progress.inc();
               }
             }
@@ -276,7 +276,7 @@ public class QueryBench {
     }
 
     var start = Instant.now();
-    var results = index.query(query, k);
+    var results = index.query(query, k, collectRecall);
     var end = Instant.now();
 
     var endMinorFaults = 0L;

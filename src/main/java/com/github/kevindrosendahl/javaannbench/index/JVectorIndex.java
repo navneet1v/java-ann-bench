@@ -249,7 +249,7 @@ public class JVectorIndex {
     }
 
     @Override
-    public List<Integer> query(float[] vector, int k) throws IOException {
+    public List<Integer> query(float[] vector, int k, boolean ensureIds) throws IOException {
       var view = this.graph.getView();
 
       NeighborSimilarity.ExactScoreFunction scoreFunction =

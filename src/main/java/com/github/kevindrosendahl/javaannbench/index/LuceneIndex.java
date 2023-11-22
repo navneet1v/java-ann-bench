@@ -335,7 +335,7 @@ public final class LuceneIndex {
     }
 
     @Override
-    public List<Integer> query(float[] vector, int k) throws IOException {
+    public List<Integer> query(float[] vector, int k, boolean ensureIds) throws IOException {
       var numCandidates =
           switch (queryParams) {
             case HnswQueryParameters hnsw -> hnsw.numCandidates;
@@ -349,12 +349,14 @@ public final class LuceneIndex {
       for (int i = 0; i < k; i++) {
         var result = results.scoreDocs[i];
         var id =
-            this.searcher
-                .storedFields()
-                .document(result.doc)
-                .getField(ID_FIELD)
-                .numericValue()
-                .intValue();
+            ensureIds
+                ? this.searcher
+                    .storedFields()
+                    .document(result.doc)
+                    .getField(ID_FIELD)
+                    .numericValue()
+                    .intValue()
+                : result.doc;
         ids.add(id);
       }
 
