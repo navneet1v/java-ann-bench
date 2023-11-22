@@ -60,7 +60,7 @@ public class QueryBench {
       var k = spec.k();
       var jfr = jfr(spec.runtime());
       var recall = recall(spec.runtime());
-      var threadStats = recall(spec.runtime());
+      var threadStats = threadStats(spec.runtime());
       var blockDevice = blockDevice(spec.runtime());
       int blockDeviceStatsIntervalMs = blockDeviceStatsIntervalMs(spec.runtime());
 
