@@ -67,10 +67,12 @@ void wrapped_io_uring_submit_requests(struct wrapped_io_uring *ring) {
 
 struct wrapped_result *
 wrapped_io_uring_wait_for_request(struct wrapped_io_uring *ring) {
-  int res = io_uring_wait_cqe(ring->wrapped, &(ring->cqe));
-  if (res < 0) {
-    perror("Failed to wait for completion");
-    return NULL;
+  int res;
+  while ((res = io_uring_wait_cqe(ring->wrapped, &(ring->cqe))) < 0) {
+      if (errno != EINTR) {
+          perror("Failed to wait for completion");
+          return NULL;
+      }
   }
 
   struct wrapped_result *result = malloc(sizeof(struct wrapped_result));
