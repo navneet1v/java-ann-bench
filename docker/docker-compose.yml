@@ -19,6 +19,6 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=kevin
     volumes:
-      - .datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+      - ./datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
     ports:
       - "20013:3000"
