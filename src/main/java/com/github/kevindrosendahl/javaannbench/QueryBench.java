@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -301,6 +302,7 @@ public class QueryBench {
     DefaultExports.initialize();
 
     Map<String, String> labels = new HashMap<>();
+    labels.put("run_id", UUID.randomUUID().toString());
     labels.put("provider", spec.provider());
     labels.put("type", spec.type());
     labels.put("dataset", spec.dataset());
