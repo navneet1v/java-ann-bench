@@ -66,8 +66,6 @@ public class QueryBench {
       var jfr = jfr(spec.runtime());
       var recall = recall(spec.runtime());
       var threadStats = threadStats(spec.runtime());
-      var blockDevice = blockDevice(spec.runtime());
-      int blockDeviceStatsIntervalMs = blockDeviceStatsIntervalMs(spec.runtime());
 
       for (int i = 0; i < numQueries; i++) {
         queries.add(dataset.test().vectorValue(i));
@@ -78,7 +76,7 @@ public class QueryBench {
       var minorFaults = new SynchronizedDescriptiveStatistics();
       var majorFaults = new SynchronizedDescriptiveStatistics();
 
-      try (var prom = startPromServer(spec)) {
+      try (var prom = startPromServer(spec, numQueries * test)) {
         try (var pool = new ForkJoinPool(queryThreads)) {
           try (var progress = ProgressBar.create("warmup", warmup * numQueries)) {
             if (concurrent) {
@@ -151,7 +149,8 @@ public class QueryBench {
                                                       concurrent,
                                                       recall,
                                                       threadStats,
-                                                      progress);
+                                                      progress,
+                                                      prom.queryDurationSeconds);
                                                   prom.queries.inc();
                                                 });
                                           });
@@ -178,7 +177,8 @@ public class QueryBench {
                       concurrent,
                       recall,
                       threadStats,
-                      progress);
+                      progress,
+                      prom.queryDurationSeconds);
                   prom.queries.inc();
                 }
               }
@@ -240,7 +240,8 @@ public class QueryBench {
       boolean concurrent,
       boolean collectRecall,
       boolean threadStats,
-      Progress progress)
+      Progress progress,
+      Gauge.Child queryDurationSeconds)
       throws Exception {
     boolean collectThreadStats = systemInfo.getOperatingSystem().getFamily() != "macOS";
 
@@ -292,10 +293,11 @@ public class QueryBench {
       majorFaults.addValue(endMajorFaults - startMajorFaults);
     }
 
+    queryDurationSeconds.inc(duration.toNanos() * 1000 * 1000 * 1000);
     progress.inc();
   }
 
-  private static Prom startPromServer(QuerySpec spec) throws Exception {
+  private static Prom startPromServer(QuerySpec spec, int numQueries) throws Exception {
     DefaultExports.initialize();
 
     Map<String, String> labels = new HashMap<>();
@@ -321,11 +323,29 @@ public class QueryBench {
             .register()
             .labels(labelValues);
 
+    Gauge.Child queryDurationSeconds =
+        Gauge.build()
+            .labelNames(labelNames)
+            .name("query_duration_seconds")
+            .help("queries")
+            .register()
+            .labels(labelValues);
+
+    Gauge.build()
+        .labelNames(labelNames)
+        .name("num_queries")
+        .help("num_queries")
+        .register()
+        .labels(labelValues)
+        .set(numQueries);
+
     HTTPServer server = new HTTPServer(20000);
-    return new Prom(server, queries, labelValues);
+    return new Prom(server, queries, queryDurationSeconds, labelValues);
   }
 
-  record Prom(HTTPServer server, Gauge.Child queries, String[] labels) implements Closeable {
+  record Prom(
+      HTTPServer server, Gauge.Child queries, Gauge.Child queryDurationSeconds, String[] labels)
+      implements Closeable {
 
     @Override
     public void close() throws IOException {
