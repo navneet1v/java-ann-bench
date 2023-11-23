@@ -293,7 +293,7 @@ public class QueryBench {
       majorFaults.addValue(endMajorFaults - startMajorFaults);
     }
 
-    queryDurationSeconds.inc(duration.toNanos() * 1000 * 1000 * 1000);
+    queryDurationSeconds.inc((double) duration.toNanos() / (1000 * 1000 * 1000));
     progress.inc();
   }
 
