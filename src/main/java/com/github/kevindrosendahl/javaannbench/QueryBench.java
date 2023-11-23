@@ -9,6 +9,7 @@ import com.github.kevindrosendahl.javaannbench.util.Exceptions;
 import com.google.common.base.Preconditions;
 import io.prometheus.client.Gauge;
 import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.hotspot.DefaultExports;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -322,6 +323,8 @@ public class QueryBench {
   }
 
   private static Prom startPromServer(QuerySpec spec) throws Exception {
+    DefaultExports.initialize();
+
     Map<String, String> labels = new HashMap<>();
     labels.put("provider", spec.provider());
     labels.put("type", spec.type());
