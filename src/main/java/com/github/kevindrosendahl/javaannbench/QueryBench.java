@@ -305,9 +305,9 @@ public class QueryBench {
     labels.put("type", spec.type());
     labels.put("dataset", spec.dataset());
     labels.put("k", Integer.toString(spec.k()));
-    spec.build().forEach((key, value) -> labels.put("build_" + key, key));
-    spec.query().forEach((key, value) -> labels.put("query_" + key, key));
-    spec.runtime().forEach((key, value) -> labels.put("runtime_" + key, key));
+    spec.build().forEach((key, value) -> labels.put("build_" + key, value));
+    spec.query().forEach((key, value) -> labels.put("query_" + key, value));
+    spec.runtime().forEach((key, value) -> labels.put("runtime_" + key, value));
     String[] labelNames = labels.keySet().stream().sorted().toArray(String[]::new);
     String[] labelValues =
         labels.entrySet().stream()
