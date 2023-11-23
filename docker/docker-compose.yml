@@ -6,16 +6,17 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-    network_mode: host
+    ports:
+      - "9090:9090"
 
   node_exporter:
     image: prom/node-exporter
-    network_mode: host
+    ports:
+      - "9100:9100"
 
   grafana:
     image: grafana/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=kevin
-      - GF_SERVER_HTTP_PORT=20013
-      - GF_SERVER_HTTP_ADDR=0.0.0.0
-    network_mode: host
+    ports:
+      - "20013:3000"
