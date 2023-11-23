@@ -4,7 +4,6 @@ import com.github.kevindrosendahl.javaannbench.dataset.Datasets;
 import com.github.kevindrosendahl.javaannbench.display.Progress;
 import com.github.kevindrosendahl.javaannbench.display.ProgressBar;
 import com.github.kevindrosendahl.javaannbench.index.Index;
-import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.github.kevindrosendahl.javaannbench.util.Exceptions;
 import com.google.common.base.Preconditions;
 import io.prometheus.client.Gauge;
@@ -74,58 +73,53 @@ public class QueryBench {
         queries.add(dataset.test().vectorValue(i));
       }
 
-      try (var pool = new ForkJoinPool(queryThreads)) {
-        try (var progress = ProgressBar.create("warmup", warmup * numQueries)) {
-          if (concurrent) {
-            pool.submit(
-                    () -> {
-                      IntStream.range(0, warmup)
-                          .parallel()
-                          .forEach(
-                              i -> {
-                                IntStream.range(0, numQueries)
-                                    .parallel()
-                                    .forEach(
-                                        j -> {
-                                          Exceptions.wrap(
-                                              () -> {
-                                                var query = queries.get(j);
-                                                index.query(query, k, recall);
-                                                progress.inc();
-                                              });
-                                        });
-                              });
-                    })
-                .join();
-          } else {
-            for (int i = 0; i < warmup; i++) {
-              for (int j = 0; j < numQueries; j++) {
-                var query = queries.get(j);
-                index.query(query, k, recall);
-                progress.inc();
+      var recalls = new SynchronizedDescriptiveStatistics();
+      var executionDurations = new SynchronizedDescriptiveStatistics();
+      var minorFaults = new SynchronizedDescriptiveStatistics();
+      var majorFaults = new SynchronizedDescriptiveStatistics();
+
+      try (var prom = startPromServer(spec)) {
+        try (var pool = new ForkJoinPool(queryThreads)) {
+          try (var progress = ProgressBar.create("warmup", warmup * numQueries)) {
+            if (concurrent) {
+              pool.submit(
+                      () -> {
+                        IntStream.range(0, warmup)
+                            .parallel()
+                            .forEach(
+                                i -> {
+                                  IntStream.range(0, numQueries)
+                                      .parallel()
+                                      .forEach(
+                                          j -> {
+                                            Exceptions.wrap(
+                                                () -> {
+                                                  var query = queries.get(j);
+                                                  index.query(query, k, recall);
+                                                  progress.inc();
+                                                });
+                                          });
+                                });
+                      })
+                  .join();
+            } else {
+              for (int i = 0; i < warmup; i++) {
+                for (int j = 0; j < numQueries; j++) {
+                  var query = queries.get(j);
+                  index.query(query, k, recall);
+                  progress.inc();
+                }
               }
             }
           }
-        }
 
-        var recalls = new SynchronizedDescriptiveStatistics();
-        var executionDurations = new SynchronizedDescriptiveStatistics();
-        var minorFaults = new SynchronizedDescriptiveStatistics();
-        var majorFaults = new SynchronizedDescriptiveStatistics();
+          Recording recording = null;
+          if (jfr) {
+            Configuration config = Configuration.getConfiguration("profile");
+            recording = new Recording(config);
+            recording.start();
+          }
 
-        Recording recording = null;
-        if (jfr) {
-          Configuration config = Configuration.getConfiguration("profile");
-          recording = new Recording(config);
-          recording.start();
-        }
-        DiskStatsCollector diskStatsCollector = null;
-        if (blockDevice.isPresent()) {
-          diskStatsCollector =
-              collectDiskStats(systemInfo, blockDevice.get(), blockDeviceStatsIntervalMs);
-        }
-
-        try (var prom = startPromServer(spec)) {
           try (var progress = ProgressBar.create("testing", test * numQueries)) {
             if (concurrent) {
               pool.submit(
@@ -190,26 +184,21 @@ public class QueryBench {
               }
             }
           }
-        }
-        if (jfr) {
-          recording.stop();
-        }
-        if (diskStatsCollector != null) {
-          diskStatsCollector.latch.countDown();
-          diskStatsCollector.latch.await();
-          diskStatsCollector.future.get();
-        }
-        if (jfr) {
-          var formatter =
-              DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
-                  .withZone(ZoneId.of("America/Los_Angeles"));
-          var jfrFileName = formatter.format(Instant.now()) + ".jfr";
-          var jfrPath = reportsPath.resolve(jfrFileName);
+          if (jfr) {
+            recording.stop();
+          }
+          if (jfr) {
+            var formatter =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+                    .withZone(ZoneId.of("America/Los_Angeles"));
+            var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+            var jfrPath = reportsPath.resolve(jfrFileName);
 
-          recording.dump(jfrPath);
-          recording.close();
+            recording.dump(jfrPath);
+            recording.close();
 
-          LOGGER.info("wrote jfr recording {}", jfrFileName);
+            LOGGER.info("wrote jfr recording {}", jfrFileName);
+          }
         }
 
         LOGGER.info("completed recall test for {}:", index.description());
@@ -221,22 +210,6 @@ public class QueryBench {
         if (threadStats) {
           LOGGER.info("\taverage minor faults {}", minorFaults.getMean());
           LOGGER.info("\taverage major faults {}", majorFaults.getMean());
-        }
-        if (diskStatsCollector != null) {
-          LOGGER.info("\taverage queue length {}", diskStatsCollector.queueLength.getMean());
-          LOGGER.info("\taverage transfer time {}", diskStatsCollector.transferTime.getMean());
-
-          long samples = diskStatsCollector.reads.getN();
-          int seconds = 1000 / ((int) samples * blockDeviceStatsIntervalMs);
-
-          double reads = diskStatsCollector.reads.getSum();
-          double readRate = reads / seconds;
-          LOGGER.info("\taverage reads {}/s", readRate);
-
-          double readBytes = diskStatsCollector.readBytes.getSum();
-          double readBytesRate = readBytes / seconds;
-          Bytes readBytesRateBytes = Bytes.ofBytes((long) readBytesRate);
-          LOGGER.info("\taverage read rate {}/s", readBytesRateBytes);
         }
         LOGGER.info("\tmax duration {}", Duration.ofNanos((long) executionDurations.getMax()));
         if (threadStats) {
