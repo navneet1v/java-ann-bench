@@ -332,7 +332,10 @@ public class QueryBench {
     spec.runtime().forEach((key, value) -> labels.put("runtime." + key, key));
     String[] labelNames = labels.keySet().stream().sorted().toArray(String[]::new);
     String[] labelValues =
-        labels.entrySet().stream().sorted().map(Map.Entry::getValue).toArray(String[]::new);
+        labels.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .map(Map.Entry::getValue)
+            .toArray(String[]::new);
 
     Gauge.Child queries =
         Gauge.build().labelNames(labelNames).name("queries_total").register().labels(labelValues);
