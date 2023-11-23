@@ -7,6 +7,10 @@ import com.github.kevindrosendahl.javaannbench.index.Index;
 import com.github.kevindrosendahl.javaannbench.util.Bytes;
 import com.github.kevindrosendahl.javaannbench.util.Exceptions;
 import com.google.common.base.Preconditions;
+import io.prometheus.client.Gauge;
+import io.prometheus.client.exporter.HTTPServer;
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -14,6 +18,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,64 +124,68 @@ public class QueryBench {
               collectDiskStats(systemInfo, blockDevice.get(), blockDeviceStatsIntervalMs);
         }
 
-        try (var progress = ProgressBar.create("testing", test * numQueries)) {
-          if (concurrent) {
-            pool.submit(
-                    () -> {
-                      IntStream.range(0, test)
-                          .parallel()
-                          .forEach(
-                              i -> {
-                                IntStream.range(0, numQueries)
-                                    .parallel()
-                                    .forEach(
-                                        j -> {
-                                          Exceptions.wrap(
-                                              () -> {
-                                                var query = queries.get(j);
-                                                var groundTruth = dataset.groundTruth().get(j);
-                                                runQuery(
-                                                    index,
-                                                    query,
-                                                    groundTruth,
-                                                    spec.k(),
-                                                    i,
-                                                    j,
-                                                    systemInfo,
-                                                    recalls,
-                                                    executionDurations,
-                                                    minorFaults,
-                                                    majorFaults,
-                                                    concurrent,
-                                                    recall,
-                                                    threadStats,
-                                                    progress);
-                                              });
-                                        });
-                              });
-                    })
-                .join();
-          } else {
-            for (int i = 0; i < test; i++) {
-              for (int j = 0; j < numQueries; j++) {
-                var query = queries.get(j);
-                var groundTruth = dataset.groundTruth().get(j);
-                runQuery(
-                    index,
-                    query,
-                    groundTruth,
-                    spec.k(),
-                    i,
-                    j,
-                    systemInfo,
-                    recalls,
-                    executionDurations,
-                    minorFaults,
-                    majorFaults,
-                    concurrent,
-                    recall,
-                    threadStats,
-                    progress);
+        try (var prom = startPromServer(spec)) {
+          try (var progress = ProgressBar.create("testing", test * numQueries)) {
+            if (concurrent) {
+              pool.submit(
+                      () -> {
+                        IntStream.range(0, test)
+                            .parallel()
+                            .forEach(
+                                i -> {
+                                  IntStream.range(0, numQueries)
+                                      .parallel()
+                                      .forEach(
+                                          j -> {
+                                            Exceptions.wrap(
+                                                () -> {
+                                                  var query = queries.get(j);
+                                                  var groundTruth = dataset.groundTruth().get(j);
+                                                  runQuery(
+                                                      index,
+                                                      query,
+                                                      groundTruth,
+                                                      spec.k(),
+                                                      i,
+                                                      j,
+                                                      systemInfo,
+                                                      recalls,
+                                                      executionDurations,
+                                                      minorFaults,
+                                                      majorFaults,
+                                                      concurrent,
+                                                      recall,
+                                                      threadStats,
+                                                      progress);
+                                                  prom.queries.inc();
+                                                });
+                                          });
+                                });
+                      })
+                  .join();
+            } else {
+              for (int i = 0; i < test; i++) {
+                for (int j = 0; j < numQueries; j++) {
+                  var query = queries.get(j);
+                  var groundTruth = dataset.groundTruth().get(j);
+                  runQuery(
+                      index,
+                      query,
+                      groundTruth,
+                      spec.k(),
+                      i,
+                      j,
+                      systemInfo,
+                      recalls,
+                      executionDurations,
+                      minorFaults,
+                      majorFaults,
+                      concurrent,
+                      recall,
+                      threadStats,
+                      progress);
+                  prom.queries.inc();
+                }
               }
             }
           }
@@ -310,6 +319,34 @@ public class QueryBench {
     }
 
     progress.inc();
+  }
+
+  private static Prom startPromServer(QuerySpec spec) throws Exception {
+    Map<String, String> labels = new HashMap<>();
+    labels.put("provider", spec.provider());
+    labels.put("type", spec.type());
+    labels.put("dataset", spec.dataset());
+    labels.put("k", Integer.toString(spec.k()));
+    spec.build().forEach((key, value) -> labels.put("build." + key, key));
+    spec.query().forEach((key, value) -> labels.put("query." + key, key));
+    spec.runtime().forEach((key, value) -> labels.put("runtime." + key, key));
+    String[] labelNames = labels.keySet().stream().sorted().toArray(String[]::new);
+    String[] labelValues =
+        labels.entrySet().stream().sorted().map(Map.Entry::getValue).toArray(String[]::new);
+
+    Gauge.Child queries =
+        Gauge.build().labelNames(labelNames).name("queries_total").register().labels(labelValues);
+
+    HTTPServer server = new HTTPServer(20000);
+    return new Prom(server, queries, labelValues);
+  }
+
+  record Prom(HTTPServer server, Gauge.Child queries, String[] labels) implements Closeable {
+
+    @Override
+    public void close() throws IOException {
+      server.close();
+    }
   }
 
   private static DiskStatsCollector collectDiskStats(

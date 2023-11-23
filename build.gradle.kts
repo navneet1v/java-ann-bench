@@ -46,6 +46,9 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
     implementation("org.jline:jline:3.23.0")
     implementation("com.indeed:util-mmap:1.0.52-3042601")
+    implementation("io.prometheus:simpleclient:0.12.0")
+    implementation("io.prometheus:simpleclient_httpserver:0.12.0")
+    implementation("io.prometheus:simpleclient_hotspot:0.12.0")
 
     implementation(files("libs/lucene-core-10.0.0-SNAPSHOT.jar"))
     implementation(files("libs/jvector-1.0.3-SNAPSHOT.jar"))

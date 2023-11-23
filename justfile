@@ -48,6 +48,7 @@ query-docker config:
   docker run --rm \
     --privileged \
     --name query-bench-run \
+    -p 20000:20000 \
     -v /usr/src:/usr/src:ro \
     -v /lib/modules:/lib/modules:ro \
     -v "$(pwd)/configs":/java-ann-bench/configs \
