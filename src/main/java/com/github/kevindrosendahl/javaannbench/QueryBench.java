@@ -338,7 +338,12 @@ public class QueryBench {
             .toArray(String[]::new);
 
     Gauge.Child queries =
-        Gauge.build().labelNames(labelNames).name("queries_total").register().labels(labelValues);
+        Gauge.build()
+            .labelNames(labelNames)
+            .name("queries_total")
+            .help("queries")
+            .register()
+            .labels(labelValues);
 
     HTTPServer server = new HTTPServer(20000);
     return new Prom(server, queries, labelValues);
