@@ -5,9 +5,9 @@ scrape_configs:
   - job_name: 'node_exporter'
     file_sd_configs:
       - files:
-          - 'node-exporter-scrape.yml'
+          - '/etc/prometheus/node-exporter-scrape.yml'
 
   - job_name: 'ann_bench'
     file_sd_configs:
       - files:
-          - 'ann-bench-scrape.yml'
+          - '/etc/prometheus/ann-bench-scrape.yml'
