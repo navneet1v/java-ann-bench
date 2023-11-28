@@ -32,10 +32,12 @@ query config:
   pq_rerank=$(yq e '.query.pqRerank' {{config}})
   mlock=$(yq e '.query.mlock' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
+  node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
 
   export VAMANA_PQ_RERANK=${pq_rerank}
   export VAMANA_MLOCK=${mlock}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
+  export VAMANA_CACHE_DEGREE=${node_cache_degree}
 
   ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
 
