@@ -20,7 +20,7 @@ while len(test_indexes) < 10000:
 seen = set()
 total = 0
 
-dataset = load_dataset(dataset_info.name, split='train', num_proc=64)
+dataset = load_dataset(dataset_info.name, split='train', streaming=True)
 
 with open('train.fvecs', 'wb') as train:
   with open('test.fvecs', 'wb') as test:
