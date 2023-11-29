@@ -8,8 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import jdk.jfr.Configuration;
+import jdk.jfr.Recording;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.slf4j.Logger;
@@ -22,6 +27,16 @@ public class BuildBench {
   public static void build(BuildSpec spec, Path datasetPath, Path indexesPath, Path reportsPath)
       throws Exception {
     var dataset = Datasets.load(datasetPath, spec.dataset());
+    var jfr =
+        Optional.ofNullable(spec.runtime().get("jfr")).map(Boolean::parseBoolean).orElse(false);
+
+    Recording recording = null;
+    if (jfr) {
+      LOGGER.info("starting jfr");
+      Configuration config = Configuration.getConfiguration("profile");
+      recording = new Recording(config);
+      recording.start();
+    }
 
     try (var index =
         Index.Builder.fromParameters(
@@ -39,6 +54,20 @@ public class BuildBench {
 
       new Report(index.description(), spec, totalTime, summary.phases(), index.size())
           .write(reportsPath);
+    }
+
+    if (jfr) {
+      recording.stop();
+      var formatter =
+          DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+              .withZone(ZoneId.of("America/Los_Angeles"));
+      var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+      var jfrPath = reportsPath.resolve(jfrFileName);
+
+      recording.dump(jfrPath);
+      recording.close();
+
+      LOGGER.info("wrote jfr recording {}", jfrFileName);
     }
   }
 

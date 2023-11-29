@@ -31,7 +31,9 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.NoMergeScheduler;
+import org.apache.lucene.index.NoMergePolicy;
+import org.apache.lucene.index.SerialMergeScheduler;
+import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
@@ -188,7 +190,8 @@ public final class LuceneIndex {
                   .setUseCompoundFile(false)
                   .setMaxBufferedDocs(1000000000)
                   .setRAMBufferSizeMB(40 * 1024)
-                  .setMergeScheduler(NoMergeScheduler.INSTANCE));
+                  .setMergePolicy(NoMergePolicy.INSTANCE)
+                  .setMergeScheduler(new SerialMergeScheduler()));
 
       return new LuceneIndex.Builder(vectors, directory, writer, provider, buildParams, similarity);
     }
@@ -238,6 +241,7 @@ public final class LuceneIndex {
 
       var mergeStart = Instant.now();
       if (merge) {
+        this.writer.getConfig().setMergePolicy(new TieredMergePolicy());
         System.out.println("merging");
         this.writer.forceMerge(1);
       }

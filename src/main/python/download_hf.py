@@ -10,7 +10,7 @@ wiki_en_embeddings = Dataset('Cohere/wikipedia-22-12-en-embeddings', 35_167_920,
                              768)
 simple = Dataset('Cohere/wikipedia-22-12-simple-embeddings', 485_859, 768)
 
-dataset_info = simple
+dataset_info = wiki_en_embeddings
 random.seed(0)
 
 test_indexes = set()
@@ -20,7 +20,7 @@ while len(test_indexes) < 10000:
 seen = set()
 total = 0
 
-dataset = load_dataset(dataset_info.name, split='train', streaming=True)
+dataset = load_dataset(dataset_info.name, split='train', num_proc=64)
 
 with open('train.fvecs', 'wb') as train:
   with open('test.fvecs', 'wb') as test:

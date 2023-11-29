@@ -6,7 +6,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-public record BuildSpec(String dataset, String provider, String type, Map<String, String> build) {
+public record BuildSpec(
+    String dataset,
+    String provider,
+    String type,
+    Map<String, String> build,
+    Map<String, String> runtime) {
 
   public static BuildSpec load(Path path) throws Exception {
     return Yaml.fromYaml(path.toFile(), BuildSpec.class);
