@@ -26,6 +26,8 @@ with open('train.fvecs', 'wb') as train:
   with open('test.fvecs', 'wb') as test:
     for i, doc in enumerate(tqdm(dataset, total=dataset_info.size)):
       total += 1
+      if total % 100000 == 0:
+        print(f'at {total}')
       test_embedding = i in test_indexes
       if test_embedding:
         seen.add(i)
