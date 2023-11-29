@@ -3,8 +3,8 @@ import faiss
 
 dimensions = 768
 
-train = np.memmap('train.fvecs', dtype='float32', mode='r').reshape(-1, dimensions)
-test = np.memmap('test.fvecs', dtype='float32', mode='r').reshape(-1, dimensions)
+train = np.fromfile('train.fvecs', dtype='float32').reshape(-1, dimensions)
+test = np.fromfile('test.fvecs', dtype='float32').reshape(-1, dimensions)
 
 index = faiss.IndexFlatL2(dimensions)
 index.add(train)
