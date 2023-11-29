@@ -9,6 +9,8 @@ import java.nio.file.Path;
 public enum Datasets {
   COHERE_WIKI_22_12_EN_768(
       "cohere-wiki-22-12-en-768-euclidean", 3495254, 10000, 768, SimilarityFunction.EUCLIDEAN),
+  COHERE_WIKI_EN_768(
+      "cohere-wiki-en-768-euclidean", 35157920, 10000, 768, SimilarityFunction.EUCLIDEAN),
   COHERE_WIKI_ES_768(
       "cohere-wiki-es-768-euclidean", 10114929, 10000, 768, SimilarityFunction.EUCLIDEAN),
   COHERE_WIKI_SIMPLE_768(
@@ -44,6 +46,7 @@ public enum Datasets {
     var description =
         switch (name) {
           case "cohere-wiki-22-12-en-768-euclidean" -> COHERE_WIKI_22_12_EN_768;
+          case "cohere-wiki-en-768-euclidean" -> COHERE_WIKI_EN_768;
           case "cohere-wiki-es-768-euclidean" -> COHERE_WIKI_ES_768;
           case "cohere-wiki-simple-768-euclidean" -> COHERE_WIKI_SIMPLE_768;
           case "gist-960-euclidean" -> GIST_960;
