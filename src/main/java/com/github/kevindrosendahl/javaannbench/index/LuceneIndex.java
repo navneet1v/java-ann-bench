@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.codecs.KnnVectorsFormat;
@@ -31,9 +32,11 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.NoMergePolicy;
+import org.apache.lucene.index.MergePolicy;
+import org.apache.lucene.index.MergeTrigger;
+import org.apache.lucene.index.SegmentCommitInfo;
+import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.SerialMergeScheduler;
-import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
@@ -98,6 +101,7 @@ public final class LuceneIndex {
     private final RandomAccessVectorValues<float[]> vectors;
     private final MMapDirectory directory;
     private final IndexWriter writer;
+    private final AtomicBoolean shouldMerge;
     private final Provider provider;
     private final BuildParameters buildParams;
     private final VectorSimilarityFunction similarityFunction;
@@ -106,12 +110,14 @@ public final class LuceneIndex {
         RandomAccessVectorValues<float[]> vectors,
         MMapDirectory directory,
         IndexWriter writer,
+        AtomicBoolean shouldMerge,
         Provider provider,
         BuildParameters buildParams,
         VectorSimilarityFunction similarityFunction) {
       this.vectors = vectors;
       this.directory = directory;
       this.writer = writer;
+      this.shouldMerge = shouldMerge;
       this.provider = provider;
       this.buildParams = buildParams;
       this.similarityFunction = similarityFunction;
@@ -182,6 +188,74 @@ public final class LuceneIndex {
               };
             }
           };
+
+      var shouldMerge = new AtomicBoolean(false);
+      var mergePolicy =
+          new MergePolicy() {
+
+            @Override
+            public MergeSpecification findMerges(
+                MergeTrigger mergeTrigger, SegmentInfos segmentInfos, MergeContext mergeContext)
+                throws IOException {
+              System.out.println("findMerges triggered");
+
+              if (!shouldMerge.get()) {
+                System.out.println("shouldMerge is false, skipping");
+                return null;
+              }
+
+              var infos = segmentInfos.asList();
+              System.out.println("infos = " + infos);
+              System.out.println("infos.size() = " + infos.size());
+
+              if (infos.size() == 1) {
+                System.out.println("only one segment, skipping");
+                return null;
+              }
+
+              var merge = new OneMerge(infos);
+              var spec = new MergeSpecification();
+              spec.add(merge);
+              return spec;
+            }
+
+            @Override
+            public MergeSpecification findForcedMerges(
+                SegmentInfos segmentInfos,
+                int i,
+                Map<SegmentCommitInfo, Boolean> map,
+                MergeContext mergeContext)
+                throws IOException {
+              System.out.println("findForcedMerges triggered");
+
+              if (!shouldMerge.get()) {
+                System.out.println("shouldMerge is false, skipping");
+                return null;
+              }
+
+              var infos = segmentInfos.asList();
+              System.out.println("infos = " + infos);
+              System.out.println("infos.size() = " + infos.size());
+
+              if (infos.size() == 1) {
+                System.out.println("only one segment, skipping");
+                return null;
+              }
+
+              var merge = new OneMerge(infos);
+              var spec = new MergeSpecification();
+              spec.add(merge);
+              return spec;
+            }
+
+            @Override
+            public MergeSpecification findForcedDeletesMerges(
+                SegmentInfos segmentInfos, MergeContext mergeContext) throws IOException {
+              System.out.println("findForcedDeletesMerges triggered");
+              return null;
+            }
+          };
+
       var writer =
           new IndexWriter(
               directory,
@@ -190,10 +264,11 @@ public final class LuceneIndex {
                   .setUseCompoundFile(false)
                   .setMaxBufferedDocs(1000000000)
                   .setRAMBufferSizeMB(40 * 1024)
-                  .setMergePolicy(NoMergePolicy.INSTANCE)
+                  .setMergePolicy(mergePolicy)
                   .setMergeScheduler(new SerialMergeScheduler()));
 
-      return new LuceneIndex.Builder(vectors, directory, writer, provider, buildParams, similarity);
+      return new LuceneIndex.Builder(
+          vectors, directory, writer, shouldMerge, provider, buildParams, similarity);
     }
 
     @Override
@@ -241,8 +316,8 @@ public final class LuceneIndex {
 
       var mergeStart = Instant.now();
       if (merge) {
-        this.writer.getConfig().setMergePolicy(new TieredMergePolicy());
         System.out.println("merging");
+        this.shouldMerge.set(true);
         this.writer.forceMerge(1);
       }
       var mergeEnd = Instant.now();
