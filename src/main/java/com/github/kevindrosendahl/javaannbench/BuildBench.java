@@ -32,9 +32,17 @@ public class BuildBench {
 
     Recording recording = null;
     if (jfr) {
-      LOGGER.info("starting jfr");
+      var formatter =
+          DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+              .withZone(ZoneId.of("America/Los_Angeles"));
+      var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+      var jfrPath = reportsPath.resolve(jfrFileName);
+      LOGGER.info("starting jfr, will log to {}", jfrPath);
+
       Configuration config = Configuration.getConfiguration("profile");
       recording = new Recording(config);
+      recording.setDestination(jfrPath);
+      recording.setDumpOnExit(true);
       recording.start();
     }
 
@@ -54,20 +62,12 @@ public class BuildBench {
 
       new Report(index.description(), spec, totalTime, summary.phases(), index.size())
           .write(reportsPath);
-    }
-
-    if (jfr) {
-      recording.stop();
-      var formatter =
-          DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
-              .withZone(ZoneId.of("America/Los_Angeles"));
-      var jfrFileName = formatter.format(Instant.now()) + ".jfr";
-      var jfrPath = reportsPath.resolve(jfrFileName);
-
-      recording.dump(jfrPath);
-      recording.close();
-
-      LOGGER.info("wrote jfr recording {}", jfrFileName);
+    } finally {
+      if (jfr) {
+        recording.stop();
+        recording.close();
+        LOGGER.info("wrote jfr recording");
+      }
     }
   }
 
