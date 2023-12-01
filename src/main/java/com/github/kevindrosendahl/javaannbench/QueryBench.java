@@ -22,12 +22,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import jdk.jfr.Configuration;
@@ -60,18 +60,26 @@ public class QueryBench {
       var queryThreads = queryThreads(spec.runtime());
       var concurrent = queryThreads != 1;
       var systemInfo = new SystemInfo();
-      var numQueries = dataset.test().size();
-      var queries = new ArrayList<float[]>(numQueries);
       var warmup = warmup(spec.runtime());
       var test = test(spec.runtime());
       var testOnTrain = testOnTrain(spec.runtime());
+      var trainTestQueries = trainTestQueries(spec.runtime());
       var k = spec.k();
       var jfr = jfr(spec.runtime());
       var recall = recall(spec.runtime());
       var threadStats = threadStats(spec.runtime());
+      var random = random(spec.runtime());
+      var numQueries = testOnTrain ? trainTestQueries : dataset.test().size();
+      var queries = new ArrayList<float[]>(numQueries);
+
+      Preconditions.checkArgument(!(testOnTrain && recall));
 
       for (int i = 0; i < numQueries; i++) {
-        queries.add(dataset.test().vectorValue(i));
+        float[] vector =
+            testOnTrain
+                ? dataset.train().vectorValue(random.nextInt(dataset.train().size()))
+                : dataset.test().vectorValue(i);
+        queries.add(vector);
       }
 
       var recalls = new SynchronizedDescriptiveStatistics();
@@ -121,101 +129,71 @@ public class QueryBench {
             recording.start();
           }
 
-          try (var progress =
-              ProgressBar.create("testing", testOnTrain ? test : test * numQueries)) {
-            if (testOnTrain) {
+          try (var progress = ProgressBar.create("testing", test * numQueries)) {
+            if (concurrent) {
               pool.submit(
                       () -> {
                         IntStream.range(0, test)
                             .parallel()
                             .forEach(
                                 i -> {
-                                  Exceptions.wrap(
-                                      () -> {
-                                        int idx =
-                                            ThreadLocalRandom.current()
-                                                .nextInt(dataset.train().size());
-                                        var query = dataset.train().vectorValue(idx);
-
-                                        var start = Instant.now();
-                                        var results = index.query(query, k, false);
-                                        var end = Instant.now();
-
-                                        var duration = Duration.between(start, end);
-                                        prom.queryDurationSeconds.inc(
-                                            (double) duration.toNanos() / (1000 * 1000 * 1000));
-                                        executionDurations.addValue(duration.toNanos());
-                                        prom.queries.inc();
-                                        progress.inc();
-                                      });
+                                  IntStream.range(0, numQueries)
+                                      .parallel()
+                                      .forEach(
+                                          j -> {
+                                            Exceptions.wrap(
+                                                () -> {
+                                                  var query = queries.get(j);
+                                                  var groundTruth = dataset.groundTruth().get(j);
+                                                  runQuery(
+                                                      index,
+                                                      query,
+                                                      groundTruth,
+                                                      spec.k(),
+                                                      i,
+                                                      j,
+                                                      systemInfo,
+                                                      recalls,
+                                                      executionDurations,
+                                                      minorFaults,
+                                                      majorFaults,
+                                                      concurrent,
+                                                      recall,
+                                                      threadStats,
+                                                      progress,
+                                                      prom.queryDurationSeconds);
+                                                  prom.queries.inc();
+                                                });
+                                          });
                                 });
                       })
                   .join();
             } else {
-              if (concurrent) {
-                pool.submit(
-                        () -> {
-                          IntStream.range(0, test)
-                              .parallel()
-                              .forEach(
-                                  i -> {
-                                    IntStream.range(0, numQueries)
-                                        .parallel()
-                                        .forEach(
-                                            j -> {
-                                              Exceptions.wrap(
-                                                  () -> {
-                                                    var query = queries.get(j);
-                                                    var groundTruth = dataset.groundTruth().get(j);
-                                                    runQuery(
-                                                        index,
-                                                        query,
-                                                        groundTruth,
-                                                        spec.k(),
-                                                        i,
-                                                        j,
-                                                        systemInfo,
-                                                        recalls,
-                                                        executionDurations,
-                                                        minorFaults,
-                                                        majorFaults,
-                                                        concurrent,
-                                                        recall,
-                                                        threadStats,
-                                                        progress,
-                                                        prom.queryDurationSeconds);
-                                                    prom.queries.inc();
-                                                  });
-                                            });
-                                  });
-                        })
-                    .join();
-              } else {
-                for (int i = 0; i < test; i++) {
-                  for (int j = 0; j < numQueries; j++) {
-                    var query = queries.get(j);
-                    var groundTruth = dataset.groundTruth().get(j);
-                    runQuery(
-                        index,
-                        query,
-                        groundTruth,
-                        spec.k(),
-                        i,
-                        j,
-                        systemInfo,
-                        recalls,
-                        executionDurations,
-                        minorFaults,
-                        majorFaults,
-                        concurrent,
-                        recall,
-                        threadStats,
-                        progress,
-                        prom.queryDurationSeconds);
-                    prom.queries.inc();
-                  }
+              for (int i = 0; i < test; i++) {
+                for (int j = 0; j < numQueries; j++) {
+                  var query = queries.get(j);
+                  var groundTruth = dataset.groundTruth().get(j);
+                  runQuery(
+                      index,
+                      query,
+                      groundTruth,
+                      spec.k(),
+                      i,
+                      j,
+                      systemInfo,
+                      recalls,
+                      executionDurations,
+                      minorFaults,
+                      majorFaults,
+                      concurrent,
+                      recall,
+                      threadStats,
+                      progress,
+                      prom.queryDurationSeconds);
+                  prom.queries.inc();
                 }
               }
+              //              }
             }
           }
           if (jfr) {
@@ -566,6 +544,12 @@ public class QueryBench {
     return Optional.ofNullable(runtime.get("testOnTrain")).map(Boolean::parseBoolean).orElse(false);
   }
 
+  private static int trainTestQueries(Map<String, String> runtime) {
+    return Optional.ofNullable(runtime.get("trainTestQueries"))
+        .map(Integer::parseInt)
+        .orElse(100000);
+  }
+
   private static boolean recall(Map<String, String> runtime) {
     return Optional.ofNullable(runtime.get("recall")).map(Boolean::parseBoolean).orElse(true);
   }
@@ -576,6 +560,11 @@ public class QueryBench {
 
   private static boolean jfr(Map<String, String> runtime) {
     return Optional.ofNullable(runtime.get("jfr")).map(Boolean::parseBoolean).orElse(false);
+  }
+
+  private static Random random(Map<String, String> runtime) {
+    int seed = Optional.ofNullable(runtime.get("seed")).map(Integer::parseInt).orElse(0);
+    return new Random(seed);
   }
 
   private static Optional<String> blockDevice(Map<String, String> runtime) {
