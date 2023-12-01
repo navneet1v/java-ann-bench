@@ -30,13 +30,17 @@ query config:
   set -exuo pipefail
 
   pq_rerank=$(yq e '.query.pqRerank' {{config}})
-  mlock=$(yq e '.query.mlock' {{config}})
+  mlock_graph=$(yq e '.query.mlockGraph' {{config}})
+  mmap_pq_vectors=$(yq e '.query.mmapPqVectors' {{config}})
+  mlock_pq_vectors=$(yq e '.query.mlockPqVectors' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
   candidates=$(yq e '.query.numCandidates' {{config}})
 
   export VAMANA_PQ_RERANK=${pq_rerank}
-  export VAMANA_MLOCK=${mlock}
+  export VAMANA_MLOCK_GRAPH=${mlock_graph}
+  export VAMANA_MMAP_PQ_VECTORS=${mmap_pq_vectors}
+  export VAMANA_MLOCK_PQ_VECTORS=${mlock_pq_vectors}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
   export VAMANA_CANDIDATES=${candidates}

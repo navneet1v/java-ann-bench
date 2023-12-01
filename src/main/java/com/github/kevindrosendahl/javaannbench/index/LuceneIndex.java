@@ -88,7 +88,9 @@ public final class LuceneIndex {
   public record VamanaQueryParameters(
       int numCandidates,
       String pqRerank,
-      boolean mlock,
+      boolean mlockGraph,
+      boolean mmapPqVectors,
+      boolean mlockPqVectors,
       String parallelRerankThreads,
       int nodeCacheDegree)
       implements QueryParameters {}
