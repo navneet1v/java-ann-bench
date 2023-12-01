@@ -65,7 +65,8 @@ public class QueryBench {
       var testOnTrain = testOnTrain(spec.runtime());
       var trainTestQueries = trainTestQueries(spec.runtime());
       var k = spec.k();
-      var jfr = jfr(spec.runtime());
+      //      var jfr = jfr(spec.runtime());
+      var jfr = false;
       var recall = recall(spec.runtime());
       var threadStats = threadStats(spec.runtime());
       var random = random(spec.runtime());

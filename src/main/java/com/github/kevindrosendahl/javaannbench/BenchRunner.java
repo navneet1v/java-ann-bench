@@ -2,6 +2,11 @@ package com.github.kevindrosendahl.javaannbench;
 
 import com.google.common.base.Preconditions;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import jdk.jfr.Configuration;
+import jdk.jfr.Recording;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -38,6 +43,18 @@ public class BenchRunner implements Runnable {
   @Override
   public void run() {
     try {
+      var formatter =
+          DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+              .withZone(ZoneId.of("America/Los_Angeles"));
+      var jfrFileName = formatter.format(Instant.now()) + ".jfr";
+      var jfrPath = Path.of(System.getProperty("user.dir")).resolve("reports").resolve(jfrFileName);
+      LOGGER.info("starting jfr, will dump to {}", jfrFileName);
+      Configuration config = Configuration.getConfiguration("profile");
+      var recording = new Recording(config);
+      recording.setDestination(jfrPath);
+      recording.setDumpOnExit(true);
+      recording.start();
+
       throwableRun();
     } catch (Exception e) {
       LOGGER.error("caught exception during execution", e);
