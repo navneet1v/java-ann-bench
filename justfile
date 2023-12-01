@@ -89,7 +89,7 @@ query-docker-internal config:
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
   export VAMANA_CANDIDATES=${candidates}
 
-  ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
+  ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms64m" --args="--query --config={{config}}"
 
 
 iouring:
