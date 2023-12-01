@@ -79,6 +79,7 @@ query-docker-internal config:
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
   candidates=$(yq e '.query.numCandidates' {{config}})
+  heap_size=$(yq e '.runtime.heapSize' {{config}})
 
   export VAMANA_PQ_RERANK=${pq_rerank}
   export VAMANA_MLOCK_GRAPH=${mlock_graph}
