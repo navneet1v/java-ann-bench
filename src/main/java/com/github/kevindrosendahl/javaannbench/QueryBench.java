@@ -144,7 +144,10 @@ public class QueryBench {
                                             Exceptions.wrap(
                                                 () -> {
                                                   var query = queries.get(j);
-                                                  var groundTruth = dataset.groundTruth().get(j);
+                                                  List<Integer> groundTruth = null;
+                                                  if (recall) {
+                                                    groundTruth = dataset.groundTruth().get(j);
+                                                  }
                                                   runQuery(
                                                       index,
                                                       query,
