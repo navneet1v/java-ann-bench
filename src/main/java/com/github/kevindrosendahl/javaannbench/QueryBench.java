@@ -57,7 +57,6 @@ public class QueryBench {
         Index.Querier.fromParameters(
             dataset, indexesPath, spec.provider(), spec.type(), spec.build(), spec.query())) {
 
-      Thread.sleep(Duration.ofHours(10));
       var queryThreads = queryThreads(spec.runtime());
       var concurrent = queryThreads != 1;
       var systemInfo = new SystemInfo();
@@ -123,6 +122,7 @@ public class QueryBench {
             }
           }
 
+          //          Thread.sleep(Duration.ofHours(10));
           Recording recording = null;
           if (jfr) {
             var formatter =
