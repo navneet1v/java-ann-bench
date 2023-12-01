@@ -33,11 +33,13 @@ query config:
   mlock=$(yq e '.query.mlock' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
+  candidates=$(yq e '.query.numCandidates' {{config}})
 
   export VAMANA_PQ_RERANK=${pq_rerank}
   export VAMANA_MLOCK=${mlock}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
+  export VAMANA_CANDIDATES=${candidates}
 
   ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx{{heap_size}}" -PmaxHeapSize=-"Xms{{heap_size}}" --args="--query --config={{config}}"
 
@@ -70,12 +72,14 @@ query-docker-internal config:
   mlock=$(yq e '.query.mlock' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
+  candidates=$(yq e '.query.numCandidates' {{config}})
   heap_size=$(yq e '.runtime.heapSize' {{config}})
 
   export VAMANA_PQ_RERANK=${pq_rerank}
   export VAMANA_MLOCK=${mlock}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
+  export VAMANA_CANDIDATES=${candidates}
 
   ./gradlew run --console=plain --quiet -PminHeapSize="-Xmx${heap_size}" -PmaxHeapSize=-"Xms${heap_size}" --args="--query --config={{config}}"
 
