@@ -57,6 +57,7 @@ public class QueryBench {
         Index.Querier.fromParameters(
             dataset, indexesPath, spec.provider(), spec.type(), spec.build(), spec.query())) {
 
+      Thread.sleep(Duration.ofHours(10));
       var queryThreads = queryThreads(spec.runtime());
       var concurrent = queryThreads != 1;
       var systemInfo = new SystemInfo();
@@ -65,8 +66,7 @@ public class QueryBench {
       var testOnTrain = testOnTrain(spec.runtime());
       var trainTestQueries = trainTestQueries(spec.runtime());
       var k = spec.k();
-      //      var jfr = jfr(spec.runtime());
-      var jfr = false;
+      var jfr = jfr(spec.runtime());
       var recall = recall(spec.runtime());
       var threadStats = threadStats(spec.runtime());
       var random = random(spec.runtime());
