@@ -73,21 +73,21 @@ public class QueryBench {
       var queries = new ArrayList<float[]>(numQueries);
 
       Preconditions.checkArgument(!(testOnTrain && recall));
-
-      for (int i = 0; i < numQueries; i++) {
-        float[] vector =
-            testOnTrain
-                ? dataset.train().vectorValue(random.nextInt(dataset.train().size()))
-                : dataset.test().vectorValue(i);
-        queries.add(vector);
-      }
-
-      var recalls = new SynchronizedDescriptiveStatistics();
-      var executionDurations = new SynchronizedDescriptiveStatistics();
-      var minorFaults = new SynchronizedDescriptiveStatistics();
-      var majorFaults = new SynchronizedDescriptiveStatistics();
-
       try (var prom = startPromServer(spec, numQueries * test)) {
+
+        for (int i = 0; i < numQueries; i++) {
+          float[] vector =
+              testOnTrain
+                  ? dataset.train().vectorValue(random.nextInt(dataset.train().size()))
+                  : dataset.test().vectorValue(i);
+          queries.add(vector);
+        }
+
+        var recalls = new SynchronizedDescriptiveStatistics();
+        var executionDurations = new SynchronizedDescriptiveStatistics();
+        var minorFaults = new SynchronizedDescriptiveStatistics();
+        var majorFaults = new SynchronizedDescriptiveStatistics();
+
         try (var pool = new ForkJoinPool(queryThreads)) {
           try (var progress = ProgressBar.create("warmup", warmup * numQueries)) {
             if (concurrent) {
