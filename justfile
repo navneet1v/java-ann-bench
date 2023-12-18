@@ -33,6 +33,7 @@ query config:
   mlock_graph=$(yq e '.query.mlockGraph' {{config}})
   mmap_pq_vectors=$(yq e '.query.mmapPqVectors' {{config}})
   mlock_pq_vectors=$(yq e '.query.mlockPqVectors' {{config}})
+  parallel_pq_vectors=$(yq e '.query.parallelPqVectors' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
   candidates=$(yq e '.query.numCandidates' {{config}})
@@ -41,6 +42,7 @@ query config:
   export VAMANA_MLOCK_GRAPH=${mlock_graph}
   export VAMANA_MMAP_PQ_VECTORS=${mmap_pq_vectors}
   export VAMANA_MLOCK_PQ_VECTORS=${mlock_pq_vectors}
+  export VAMANA_PARALLEL_PQ_VECTORS=${parallel_pq_vectors}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
   export VAMANA_CANDIDATES=${candidates}
@@ -76,6 +78,7 @@ query-docker-internal config:
   mlock_graph=$(yq e '.query.mlockGraph' {{config}})
   mmap_pq_vectors=$(yq e '.query.mmapPqVectors' {{config}})
   mlock_pq_vectors=$(yq e '.query.mlockPqVectors' {{config}})
+  parallel_pq_vectors=$(yq e '.query.parallelPqVectors' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
   candidates=$(yq e '.query.numCandidates' {{config}})
@@ -85,6 +88,7 @@ query-docker-internal config:
   export VAMANA_MLOCK_GRAPH=${mlock_graph}
   export VAMANA_MMAP_PQ_VECTORS=${mmap_pq_vectors}
   export VAMANA_MLOCK_PQ_VECTORS=${mlock_pq_vectors}
+  export VAMANA_PARALLEL_PQ_VECTORS=${parallel_pq_vectors}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
   export VAMANA_CANDIDATES=${candidates}

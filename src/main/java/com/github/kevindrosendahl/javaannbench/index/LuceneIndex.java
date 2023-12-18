@@ -91,6 +91,7 @@ public final class LuceneIndex {
       boolean mlockGraph,
       boolean mmapPqVectors,
       boolean mlockPqVectors,
+      boolean parallelPqVectors,
       String parallelRerankThreads,
       int nodeCacheDegree)
       implements QueryParameters {}
