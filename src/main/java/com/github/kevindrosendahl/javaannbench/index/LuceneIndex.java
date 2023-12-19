@@ -92,6 +92,8 @@ public final class LuceneIndex {
       boolean mmapPqVectors,
       boolean mlockPqVectors,
       boolean parallelPqVectors,
+      boolean parallelNeighborhoods,
+      int parallelNeighborhoodsBeamWidth,
       String parallelRerankThreads,
       int nodeCacheDegree)
       implements QueryParameters {}

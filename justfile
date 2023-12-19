@@ -34,6 +34,8 @@ query config:
   mmap_pq_vectors=$(yq e '.query.mmapPqVectors' {{config}})
   mlock_pq_vectors=$(yq e '.query.mlockPqVectors' {{config}})
   parallel_pq_vectors=$(yq e '.query.parallelPqVectors' {{config}})
+  parallel_neighborhoods=$(yq e '.query.parallelNeighborhoods' {{config}})
+  parallel_neighborhoods_beam_width=$(yq e '.query.parallelNeighborhoodsBeamWidth' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
   candidates=$(yq e '.query.numCandidates' {{config}})
@@ -43,6 +45,8 @@ query config:
   export VAMANA_MMAP_PQ_VECTORS=${mmap_pq_vectors}
   export VAMANA_MLOCK_PQ_VECTORS=${mlock_pq_vectors}
   export VAMANA_PARALLEL_PQ_VECTORS=${parallel_pq_vectors}
+  export VAMANA_PARALLEL_NEIGHBORHOODS=${parallel_neighborhoods}
+  export VAMANA_PARALLEL_NEIGHBORHOODS_BEAM_WIDTH=${parallel_neighborhoods_beam_width}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
   export VAMANA_CANDIDATES=${candidates}
@@ -79,6 +83,8 @@ query-docker-internal config:
   mmap_pq_vectors=$(yq e '.query.mmapPqVectors' {{config}})
   mlock_pq_vectors=$(yq e '.query.mlockPqVectors' {{config}})
   parallel_pq_vectors=$(yq e '.query.parallelPqVectors' {{config}})
+  parallel_neighborhoods=$(yq e '.query.parallelNeighborhoods' {{config}})
+  parallel_neighborhoods_beam_width=$(yq e '.query.parallelNeighborhoodsBeamWidth' {{config}})
   parallel_rerank_threads=$(yq e '.query.parallelRerankThreads' {{config}})
   node_cache_degree=$(yq e '.query.nodeCacheDegree' {{config}})
   candidates=$(yq e '.query.numCandidates' {{config}})
@@ -89,6 +95,8 @@ query-docker-internal config:
   export VAMANA_MMAP_PQ_VECTORS=${mmap_pq_vectors}
   export VAMANA_MLOCK_PQ_VECTORS=${mlock_pq_vectors}
   export VAMANA_PARALLEL_PQ_VECTORS=${parallel_pq_vectors}
+  export VAMANA_PARALLEL_NEIGHBORHOODS=${parallel_neighborhoods}
+  export VAMANA_PARALLEL_NEIGHBORHOODS_BEAM_WIDTH=${parallel_neighborhoods_beam_width}
   export VAMANA_PARALLEL_RERANK_THREADS=${parallel_rerank_threads}
   export VAMANA_CACHE_DEGREE=${node_cache_degree}
   export VAMANA_CANDIDATES=${candidates}
