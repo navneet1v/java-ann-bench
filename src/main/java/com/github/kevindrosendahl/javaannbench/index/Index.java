@@ -113,8 +113,6 @@ public interface Index extends AutoCloseable {
       return switch (parameters.provider) {
         case "lucene" -> LuceneIndex.Querier.create(
             indexesPath.resolve(dataset.name()), parameters);
-        case "jvector" -> JVectorIndex.Querier.create(
-            datasetPath, dataset.similarityFunction(), dataset.dimensions(), parameters);
         default -> throw new RuntimeException("unknown index provider: " + parameters.provider);
       };
     }
